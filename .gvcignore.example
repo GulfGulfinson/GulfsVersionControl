@@ -1,0 +1,77 @@
+# GVC Ignore File Example
+# Place this file as .gvcignore in your repository root
+
+# Build artifacts
+target/
+build/
+dist/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Compiled files
+*.class
+*.pyc
+*.pyo
+__pycache__/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Dependency directories
+node_modules/
+vendor/
+.cargo/
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Environment files (but keep example)
+.env
+!.env.example
+
+# Test coverage
+coverage/
+*.coverage
+
+# OS files
+Thumbs.db
+desktop.ini
+
+# Package manager lock files (optional)
+# Uncomment if you want to ignore them
+# Cargo.lock
+# package-lock.json
+# yarn.lock
+
+# Documentation build output
+docs/_build/
+site/
+
+# Specific directories to ignore
+tmp/
+temp/
+
+# But include important files in ignored directories
+!important-config.tmp
+
+# Pattern examples:
+# test?.txt       - Matches test1.txt, test2.txt, etc.
+# **/*.pyc        - Matches all .pyc files recursively
+# src/**/*.test.js - Matches all .test.js files under src/
+
