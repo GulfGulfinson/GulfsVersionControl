@@ -1,0 +1,17 @@
+[package]
+name = "gvc-server"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+gvc-core = { path = "../gvc-core" }
+axum.workspace = true
+tokio.workspace = true
+tower.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+
+# Server implementation for Phase 4
+

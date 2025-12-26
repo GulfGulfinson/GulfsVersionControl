@@ -1,0 +1,16 @@
+[package]
+name = "gvc-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "gvc"
+path = "src/main.rs"
+
+[dependencies]
+gvc-core = { path = "../gvc-core" }
+clap.workspace = true
+anyhow.workspace = true
+
