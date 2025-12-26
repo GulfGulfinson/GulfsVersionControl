@@ -7,9 +7,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
 [![Phase](https://img.shields.io/badge/Phase-3%20Complete-success.svg)](ROADMAP.md)
-[![Status](https://img.shields.io/badge/Status-Production--Ready-brightgreen.svg)](PROJECT_COMPLETE.md)
+[![Status](https://img.shields.io/badge/Status-Production--Ready-brightgreen.svg)](PROJECT_STATUS.md)
 
-**🌟 [New here? Start Here!](WELCOME.md) | [5-Min Quick Start](QUICKSTART.md) | [Complete Tutorial](TUTORIAL.md) 🌟**
+**🌟 [5-Min Quick Start](QUICKSTART.md) | [Complete Tutorial](TUTORIAL.md) | [Cheatsheet](CHEATSHEET.md) 🌟**
 
 [Features](#features) • [Installation](#installation) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Roadmap](#roadmap)
 
