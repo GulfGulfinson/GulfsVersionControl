@@ -1,0 +1,19 @@
+[module]
+name = "commit-convention"
+version = "1.0.0"
+description = "Enforces conventional commit message format"
+authors = ["GVC Team"]
+license = "MIT"
+keywords = ["commit", "convention", "validation"]
+
+[hooks]
+pre-commit = "hooks/validate-message.sh"
+
+[config]
+# Allowed commit types
+types = ["feat", "fix", "docs", "style", "refactor", "test", "chore", "perf"]
+# Require scope
+require_scope = false
+# Maximum subject length
+max_subject_length = 72
+
