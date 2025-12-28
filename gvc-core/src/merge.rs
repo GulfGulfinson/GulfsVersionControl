@@ -341,7 +341,7 @@ impl<'a> MergeManager<'a> {
     /// Try to merge file content
     fn try_content_merge(
         &self,
-        path: &PathBuf,
+        path: &Path,
         base: Option<Hash>,
         ours: Option<Hash>,
         theirs: Option<Hash>,
@@ -353,7 +353,7 @@ impl<'a> MergeManager<'a> {
         // For now, just report conflict
         // TODO: Implement actual line-by-line merge
         Ok(FileMergeResult::Conflict(ConflictedFile {
-            path: path.clone(),
+            path: path.to_path_buf(),
             ours: our_content,
             theirs: their_content,
             base: base_content,

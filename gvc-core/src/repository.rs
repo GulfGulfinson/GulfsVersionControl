@@ -253,7 +253,7 @@ impl Repository {
 
         // Sort paths by depth (deepest first)
         let mut sorted_paths: Vec<_> = tree_map.keys().cloned().collect();
-        sorted_paths.sort_by(|a, b| b.components().count().cmp(&a.components().count()));
+        sorted_paths.sort_by_key(|b| std::cmp::Reverse(b.components().count()));
 
         for path in sorted_paths {
             let mut tree = Tree::new();
@@ -856,7 +856,7 @@ mod tests {
         repo.add(&[PathBuf::from("test.txt")]).unwrap();
         let commit_hash = repo.commit("Initial commit", "Test Author").unwrap();
 
-        assert!(commit_hash.to_hex().len() > 0);
+        assert!(!commit_hash.to_hex().is_empty());
 
         // Verify log
         let log = repo.log(None).unwrap();

@@ -1,6 +1,7 @@
 use crate::{Error, Hash, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 /// Object types in GVC
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,7 +22,7 @@ impl ObjectType {
         }
     }
 
-    pub fn from_str(s: &str) -> Result<Self> {
+    pub fn parse(s: &str) -> Result<Self> {
         match s {
             "blob" => Ok(ObjectType::Blob),
             "tree" => Ok(ObjectType::Tree),
@@ -29,6 +30,14 @@ impl ObjectType {
             "tag" => Ok(ObjectType::Tag),
             _ => Err(Error::InvalidObjectType(s.to_string())),
         }
+    }
+}
+
+impl FromStr for ObjectType {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        Self::parse(s)
     }
 }
 
