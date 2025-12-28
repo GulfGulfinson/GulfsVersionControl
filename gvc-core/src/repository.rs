@@ -1,7 +1,8 @@
 use crate::{
-    error::Result, Blob, Commit, Error, Hash, Index, IndexEntry, Object, ObjectType, Tree,
+    error::Result, Blob, Commit, Error, Hash, Object, Tree,
     TreeEntry, DiffEngine, FileDiff, HookManager, HookType,
 };
+use crate::index::{Index, IndexEntry};
 use crate::refs::RefManager;
 use crate::storage::ObjectStorage;
 use crate::ignore::IgnoreFile;
@@ -236,7 +237,7 @@ impl Repository {
             let components: Vec<std::path::Component> = entry.path.components().collect();
 
             for (i, component) in components.iter().enumerate() {
-                let name = component.as_os_str().to_string_lossy().to_string();
+                let name: String = component.as_os_str().to_string_lossy().to_string();
 
                 if i == components.len() - 1 {
                     // Leaf file
@@ -554,7 +555,7 @@ impl Repository {
                 )?;
 
                 diffs.push(FileDiff {
-                    path: path.to_string_lossy().to_string(),
+                    path: (path as &PathBuf).to_string_lossy().to_string(),
                     old_hash,
                     new_hash,
                     hunks,
@@ -594,7 +595,7 @@ impl Repository {
                 let hunks = DiffEngine::diff_blobs(old_blob.as_blob(), None)?;
 
                 diffs.push(FileDiff {
-                    path: path.to_string_lossy().to_string(),
+                    path: (path as &PathBuf).to_string_lossy().to_string(),
                     old_hash: Some(entry.hash.clone()),
                     new_hash: None,
                     hunks,
@@ -671,7 +672,7 @@ impl Repository {
             let head_hash = head_files.get(path as &PathBuf);
 
             if head_hash.is_none() {
-                status.staged_new.push(path.clone());
+                status.staged_new.push((path as &PathBuf).clone());
             } else if Some(&entry.hash) != head_hash {
                 status.staged_modified.push(path.clone());
             }
@@ -712,7 +713,7 @@ impl Repository {
         for path in index.entries().keys() {
             let full_path = self.work_dir.join(path as &PathBuf);
             if !full_path.exists() {
-                status.deleted.push(path.clone());
+                status.deleted.push((path as &PathBuf).clone());
             }
         }
 

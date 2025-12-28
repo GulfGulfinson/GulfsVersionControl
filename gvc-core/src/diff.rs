@@ -1,5 +1,4 @@
-use crate::{Blob, Error, Hash, Object, Result};
-use std::collections::HashMap;
+use crate::{Blob, Error, Hash, Result};
 
 /// Represents a change in a file
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,8 +202,8 @@ impl DiffEngine {
     /// Group changes into hunks with context
     fn group_into_hunks(
         changes: Vec<Change>,
-        old_total: usize,
-        new_total: usize,
+        _old_total: usize,
+        _new_total: usize,
     ) -> Vec<Hunk> {
         if changes.is_empty() {
             return Vec::new();

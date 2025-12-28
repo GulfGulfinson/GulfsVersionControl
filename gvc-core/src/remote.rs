@@ -7,8 +7,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::error::GvcError;
-use crate::protocol::{Request, Response, ObjectData, RefUpdate, ObjectType};
+use crate::Error;
+use crate::protocol::{Request, Response, ObjectData, RefUpdate};
 use crate::hash::Oid;
 
 /// Remote repository configuration

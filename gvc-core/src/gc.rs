@@ -1,6 +1,6 @@
 // Garbage collection for unreachable objects
 
-use crate::{Error, Hash, Object, Repository, Result};
+use crate::{Hash, Object, Repository, Result};
 use std::collections::HashSet;
 
 /// Garbage collector for GVC repository

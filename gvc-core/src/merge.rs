@@ -1,7 +1,7 @@
 // Merge functionality for GVC
 
-use crate::{Error, Hash, Object, Repository, Result, Blob, Tree, TreeEntry, Commit};
-use std::collections::{HashMap, BTreeMap};
+use crate::{Error, Hash, Object, Repository, Result, Tree, TreeEntry, Commit};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// Merge result
@@ -281,6 +281,11 @@ impl<'a> MergeManager<'a> {
         theirs: Option<Hash>,
         strategy: MergeStrategy,
     ) -> Result<FileMergeResult> {
+        // Clone for later use
+        let base_copy = base.clone();
+        let ours_copy = ours.clone();
+        let theirs_copy = theirs.clone();
+        
         match (base, ours, theirs) {
             // File unchanged
             (Some(b), Some(o), Some(t)) if b == o && o == t => {
@@ -301,7 +306,7 @@ impl<'a> MergeManager<'a> {
                     MergeStrategy::Theirs => Ok(FileMergeResult::Success(t)),
                     MergeStrategy::Recursive => {
                         // Try to merge content
-                        self.try_content_merge(path, base.clone(), Some(o), Some(t))
+                        self.try_content_merge(path, base_copy.clone(), Some(o), Some(t))
                     }
                     MergeStrategy::FastForwardOnly => unreachable!(),
                 }
@@ -315,7 +320,7 @@ impl<'a> MergeManager<'a> {
                 if o == t {
                     Ok(FileMergeResult::Success(o))
                 } else {
-                    self.try_content_merge(path, base.clone(), Some(o), Some(t))
+                    self.try_content_merge(path, base_copy, Some(o), Some(t))
                 }
             }
             // File deleted by us
