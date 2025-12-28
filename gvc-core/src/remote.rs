@@ -83,7 +83,7 @@ impl RemoteManager {
         let name = name.into();
         
         if self.remotes.contains_key(&name) {
-            return Err(GvcError::RemoteExists(name).into());
+            return Err(Error::RemoteExists(name).into());
         }
 
         let remote = RemoteConfig::new(name.clone(), url);
@@ -96,7 +96,7 @@ impl RemoteManager {
     /// Remove a remote
     pub fn remove(&mut self, name: &str) -> Result<()> {
         if !self.remotes.contains_key(name) {
-            return Err(GvcError::RemoteNotFound(name.to_string()).into());
+            return Err(Error::RemoteNotFound(name.to_string()).into());
         }
 
         self.remotes.remove(name);
@@ -110,7 +110,7 @@ impl RemoteManager {
         let new_name = new_name.into();
         
         if !self.remotes.contains_key(old_name) {
-            return Err(GvcError::RemoteNotFound(old_name.to_string()).into());
+            return Err(Error::RemoteNotFound(old_name.to_string()).into());
         }
 
         if self.remotes.contains_key(&new_name) {
@@ -175,7 +175,7 @@ impl RemoteClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().unwrap_or_default();
-            return Err(GvcError::RemoteError(
+            return Err(Error::RemoteError(
                 format!("HTTP {}: {}", status, text)
             ).into());
         }
@@ -197,9 +197,9 @@ impl RemoteClient {
         match response {
             Response::Refs { refs, .. } => Ok(refs),
             Response::Error { code, message } => {
-                Err(GvcError::RemoteError(format!("{}: {}", code, message)).into())
+                Err(Error::RemoteError(format!("{}: {}", code, message)).into())
             }
-            _ => Err(GvcError::RemoteError("Unexpected response".to_string()).into()),
+            _ => Err(Error::RemoteError("Unexpected response".to_string()).into()),
         }
     }
 
@@ -215,9 +215,9 @@ impl RemoteClient {
         match response {
             Response::Objects { objects } => Ok(objects),
             Response::Error { code, message } => {
-                Err(GvcError::RemoteError(format!("{}: {}", code, message)).into())
+                Err(Error::RemoteError(format!("{}: {}", code, message)).into())
             }
-            _ => Err(GvcError::RemoteError("Unexpected response".to_string()).into()),
+            _ => Err(Error::RemoteError("Unexpected response".to_string()).into()),
         }
     }
 
@@ -241,13 +241,13 @@ impl RemoteClient {
                 if success {
                     Ok(message)
                 } else {
-                    Err(GvcError::RemoteError(message).into())
+                    Err(Error::RemoteError(message).into())
                 }
             }
             Response::Error { code, message } => {
-                Err(GvcError::RemoteError(format!("{}: {}", code, message)).into())
+                Err(Error::RemoteError(format!("{}: {}", code, message)).into())
             }
-            _ => Err(GvcError::RemoteError("Unexpected response".to_string()).into()),
+            _ => Err(Error::RemoteError("Unexpected response".to_string()).into()),
         }
     }
 }

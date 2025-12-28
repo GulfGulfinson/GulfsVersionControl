@@ -283,8 +283,6 @@ impl<'a> MergeManager<'a> {
     ) -> Result<FileMergeResult> {
         // Clone for later use
         let base_copy = base.clone();
-        let ours_copy = ours.clone();
-        let theirs_copy = theirs.clone();
         
         match (base, ours, theirs) {
             // File unchanged
