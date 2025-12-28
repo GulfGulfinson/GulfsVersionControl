@@ -1,4 +1,4 @@
-use gvc_core::{Commit, Hash, Object, Repository, ModuleManager, ModuleManifest, RemoteManager, RemoteClient, ObjectData};
+use gvc_core::{Commit, Hash, Object, Repository, ModuleManager, RemoteManager, RemoteClient, ObjectData};
 use gvc_core::gc::{GarbageCollector, GcStats};
 use gvc_core::merge::{MergeManager, MergeResult, MergeStrategy};
 use std::env;
@@ -634,7 +634,7 @@ pub fn fetch(remote_name: &str) -> anyhow::Result<()> {
     
     // Collect objects we need
     let mut objects_to_fetch = Vec::new();
-    for (ref_name, oid) in &remote_refs {
+    for (_ref_name, oid) in &remote_refs {
         // Check if we have this object
         if repo.read_object(oid).is_err() {
             objects_to_fetch.push(oid.clone());
@@ -670,7 +670,7 @@ pub fn fetch(remote_name: &str) -> anyhow::Result<()> {
 }
 
 /// Pull from a remote repository (fetch + merge)
-pub fn pull(remote_name: &str, branch: Option<&str>) -> anyhow::Result<()> {
+pub fn pull(remote_name: &str, _branch: Option<&str>) -> anyhow::Result<()> {
     // For now, just fetch - merging will be implemented in Phase 6
     fetch(remote_name)?;
     

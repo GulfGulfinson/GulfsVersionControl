@@ -13,6 +13,7 @@ path = "src/main.rs"
 gvc-core = { path = "../gvc-core" }
 clap.workspace = true
 anyhow.workspace = true
+chrono.workspace = true
 
 [dev-dependencies]
 tempfile = "3.8"
