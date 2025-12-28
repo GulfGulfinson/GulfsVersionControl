@@ -114,7 +114,7 @@ impl RemoteManager {
         }
 
         if self.remotes.contains_key(&new_name) {
-            return Err(GvcError::RemoteExists(new_name).into());
+            return Err(Error::RemoteExists(new_name).into());
         }
 
         let mut remote = self.remotes.remove(old_name).unwrap();
