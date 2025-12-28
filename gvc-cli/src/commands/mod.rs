@@ -1,4 +1,5 @@
 use gvc_core::{Commit, Hash, Object, Repository, ModuleManager, ModuleManifest, RemoteManager, RemoteClient, ObjectData};
+use gvc_core::gc::{GarbageCollector, GcStats};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::collections::HashSet;
@@ -844,6 +845,46 @@ fn mark_reachable_objects(
             }
         }
         Object::Blob(_) => {}
+    }
+    
+    Ok(())
+}
+
+// ============================================================================
+// MAINTENANCE COMMANDS (Phase 5)
+// ============================================================================
+
+/// Run garbage collection
+pub fn gc(dry_run: bool, verbose: bool) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let gc = GarbageCollector::new(&repo);
+    
+    if verbose {
+        println!("Analyzing repository...");
+        let stats = gc.stats()?;
+        println!();
+        println!("Repository Statistics:");
+        println!("  Total objects:       {}", stats.total_objects);
+        println!("  Reachable objects:   {}", stats.reachable_objects);
+        println!("  Unreachable objects: {}", stats.unreachable_objects);
+        println!("  Total size:          {}", GcStats::format_size(stats.total_size));
+        println!("  Reachable size:      {}", GcStats::format_size(stats.reachable_size));
+        println!("  Unreachable size:    {}", GcStats::format_size(stats.unreachable_size));
+        println!();
+    }
+    
+    if dry_run {
+        println!("Running in dry-run mode (no changes will be made)");
+    }
+    
+    println!("Running garbage collection...");
+    let (removed, bytes_freed) = gc.collect(dry_run)?;
+    
+    if removed > 0 {
+        println!("Removed {} unreachable object(s)", removed);
+        println!("Freed {}", GcStats::format_size(bytes_freed));
+    } else {
+        println!("No unreachable objects found");
     }
     
     Ok(())

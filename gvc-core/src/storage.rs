@@ -108,7 +108,7 @@ impl ObjectStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Blob;
+    use crate::{Blob, Tree, TreeEntry, Commit};
     use tempfile::TempDir;
 
     #[test]
@@ -120,22 +120,147 @@ mod tests {
         assert!(temp.path().join("objects").exists());
         assert!(temp.path().join("objects/00").exists());
         assert!(temp.path().join("objects/ff").exists());
+        assert!(temp.path().join("objects/ab").exists());
     }
 
     #[test]
-    fn test_store_and_load() {
+    fn test_store_and_load_blob() {
         let temp = TempDir::new().unwrap();
         let storage = ObjectStorage::new(temp.path());
         storage.init().unwrap();
         
         let blob = Blob::new(b"test content".to_vec());
-        let obj = Object::Blob(blob);
+        let obj = Object::Blob(blob.clone());
         
         let hash = storage.store(&obj).unwrap();
         assert!(storage.exists(&hash));
         
         let loaded = storage.load(&hash).unwrap();
         assert_eq!(obj.object_type(), loaded.object_type());
+        assert_eq!(loaded.as_blob().unwrap().data, blob.data);
+    }
+
+    #[test]
+    fn test_store_and_load_tree() {
+        let temp = TempDir::new().unwrap();
+        let storage = ObjectStorage::new(temp.path());
+        storage.init().unwrap();
+        
+        let mut tree = Tree::new();
+        tree.add_entry(TreeEntry::new_file("file.txt".to_string(), Hash::compute(b"test")));
+        let obj = Object::Tree(tree);
+        
+        let hash = storage.store(&obj).unwrap();
+        let loaded = storage.load(&hash).unwrap();
+        
+        assert_eq!(obj.object_type(), loaded.object_type());
+        assert_eq!(loaded.as_tree().unwrap().entries.len(), 1);
+    }
+
+    #[test]
+    fn test_store_and_load_commit() {
+        let temp = TempDir::new().unwrap();
+        let storage = ObjectStorage::new(temp.path());
+        storage.init().unwrap();
+        
+        let commit = Commit::new(
+            Hash::compute(b"tree"),
+            vec![],
+            "Author".to_string(),
+            "Message".to_string(),
+        );
+        let obj = Object::Commit(commit);
+        
+        let hash = storage.store(&obj).unwrap();
+        let loaded = storage.load(&hash).unwrap();
+        
+        assert_eq!(obj.object_type(), loaded.object_type());
+        assert_eq!(loaded.as_commit().unwrap().message, "Message");
+    }
+
+    #[test]
+    fn test_store_idempotent() {
+        let temp = TempDir::new().unwrap();
+        let storage = ObjectStorage::new(temp.path());
+        storage.init().unwrap();
+        
+        let blob = Blob::new(b"test".to_vec());
+        let obj = Object::Blob(blob);
+        
+        let hash1 = storage.store(&obj).unwrap();
+        let hash2 = storage.store(&obj).unwrap();
+        
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_exists() {
+        let temp = TempDir::new().unwrap();
+        let storage = ObjectStorage::new(temp.path());
+        storage.init().unwrap();
+        
+        let fake_hash = Hash::compute(b"nonexistent");
+        assert!(!storage.exists(&fake_hash));
+        
+        let blob = Blob::new(b"test".to_vec());
+        let obj = Object::Blob(blob);
+        let hash = storage.store(&obj).unwrap();
+        
+        assert!(storage.exists(&hash));
+    }
+
+    #[test]
+    fn test_load_nonexistent() {
+        let temp = TempDir::new().unwrap();
+        let storage = ObjectStorage::new(temp.path());
+        storage.init().unwrap();
+        
+        let fake_hash = Hash::compute(b"nonexistent");
+        let result = storage.load(&fake_hash);
+        
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_list_objects() {
+        let temp = TempDir::new().unwrap();
+        let storage = ObjectStorage::new(temp.path());
+        storage.init().unwrap();
+        
+        // Initially empty
+        let objects = storage.list_objects().unwrap();
+        assert_eq!(objects.len(), 0);
+        
+        // Add some objects
+        let blob1 = Object::Blob(Blob::new(b"test1".to_vec()));
+        let blob2 = Object::Blob(Blob::new(b"test2".to_vec()));
+        let blob3 = Object::Blob(Blob::new(b"test3".to_vec()));
+        
+        let hash1 = storage.store(&blob1).unwrap();
+        let hash2 = storage.store(&blob2).unwrap();
+        let hash3 = storage.store(&blob3).unwrap();
+        
+        let objects = storage.list_objects().unwrap();
+        assert_eq!(objects.len(), 3);
+        assert!(objects.contains(&hash1));
+        assert!(objects.contains(&hash2));
+        assert!(objects.contains(&hash3));
+    }
+
+    #[test]
+    fn test_object_path() {
+        let temp = TempDir::new().unwrap();
+        let storage = ObjectStorage::new(temp.path());
+        
+        let hash = Hash::compute(b"test");
+        let hex = hash.to_hex();
+        let expected_prefix = &hex[0..2];
+        let expected_suffix = &hex[2..];
+        
+        let path = storage.object_path(&hash);
+        
+        assert!(path.to_string_lossy().contains(expected_prefix));
+        assert!(path.to_string_lossy().contains(expected_suffix));
     }
 }
 

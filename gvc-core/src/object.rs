@@ -221,21 +221,116 @@ mod tests {
     fn test_blob_creation() {
         let blob = Blob::new(b"hello world".to_vec());
         assert_eq!(blob.size(), 11);
+        assert_eq!(blob.data, b"hello world");
     }
 
     #[test]
-    fn test_tree_operations() {
+    fn test_blob_empty() {
+        let blob = Blob::new(vec![]);
+        assert_eq!(blob.size(), 0);
+    }
+
+    #[test]
+    fn test_tree_creation() {
+        let tree = Tree::new();
+        assert!(tree.entries.is_empty());
+    }
+
+    #[test]
+    fn test_tree_add_entry() {
         let mut tree = Tree::new();
         let hash = Hash::compute(b"test");
-        let entry = TreeEntry::new_file("test.txt".to_string(), hash);
+        let entry = TreeEntry::new_file("test.txt".to_string(), hash.clone());
         
-        tree.add_entry(entry.clone());
+        tree.add_entry(entry);
         assert_eq!(tree.entries.len(), 1);
         assert!(tree.get_entry("test.txt").is_some());
+        assert_eq!(tree.get_entry("test.txt").unwrap().hash, hash);
     }
 
     #[test]
-    fn test_object_serialization() {
+    fn test_tree_multiple_entries() {
+        let mut tree = Tree::new();
+        tree.add_entry(TreeEntry::new_file("file1.txt".to_string(), Hash::compute(b"1")));
+        tree.add_entry(TreeEntry::new_file("file2.txt".to_string(), Hash::compute(b"2")));
+        tree.add_entry(TreeEntry::new_dir("dir1".to_string(), Hash::compute(b"3")));
+        
+        assert_eq!(tree.entries.len(), 3);
+        assert!(tree.get_entry("file1.txt").is_some());
+        assert!(tree.get_entry("file2.txt").is_some());
+        assert!(tree.get_entry("dir1").is_some());
+    }
+
+    #[test]
+    fn test_tree_entry_types() {
+        let file_entry = TreeEntry::new_file("file.txt".to_string(), Hash::compute(b"test"));
+        let dir_entry = TreeEntry::new_dir("dir".to_string(), Hash::compute(b"test"));
+        
+        assert!(file_entry.is_file());
+        assert!(!file_entry.is_dir());
+        assert!(dir_entry.is_dir());
+        assert!(!dir_entry.is_file());
+    }
+
+    #[test]
+    fn test_commit_creation() {
+        let tree_hash = Hash::compute(b"tree");
+        let commit = Commit::new(
+            tree_hash.clone(),
+            vec![],
+            "Test Author".to_string(),
+            "Test message".to_string(),
+        );
+        
+        assert_eq!(commit.tree, tree_hash);
+        assert_eq!(commit.author, "Test Author");
+        assert_eq!(commit.message, "Test message");
+        assert!(commit.is_root());
+    }
+
+    #[test]
+    fn test_commit_with_parents() {
+        let tree_hash = Hash::compute(b"tree");
+        let parent_hash = Hash::compute(b"parent");
+        let commit = Commit::new(
+            tree_hash,
+            vec![parent_hash],
+            "Author".to_string(),
+            "Message".to_string(),
+        );
+        
+        assert!(!commit.is_root());
+        assert_eq!(commit.parents.len(), 1);
+    }
+
+    #[test]
+    fn test_object_type_blob() {
+        let blob = Blob::new(vec![1, 2, 3]);
+        let obj = Object::Blob(blob);
+        assert_eq!(obj.object_type(), ObjectType::Blob);
+    }
+
+    #[test]
+    fn test_object_type_tree() {
+        let tree = Tree::new();
+        let obj = Object::Tree(tree);
+        assert_eq!(obj.object_type(), ObjectType::Tree);
+    }
+
+    #[test]
+    fn test_object_type_commit() {
+        let commit = Commit::new(
+            Hash::compute(b"tree"),
+            vec![],
+            "Author".to_string(),
+            "Message".to_string(),
+        );
+        let obj = Object::Commit(commit);
+        assert_eq!(obj.object_type(), ObjectType::Commit);
+    }
+
+    #[test]
+    fn test_object_serialization_blob() {
         let blob = Blob::new(b"test data".to_vec());
         let obj = Object::Blob(blob);
         
@@ -243,6 +338,96 @@ mod tests {
         let deserialized = Object::from_bytes(&bytes).unwrap();
         
         assert_eq!(obj.object_type(), deserialized.object_type());
+        assert_eq!(obj.as_blob().unwrap().data, deserialized.as_blob().unwrap().data);
+    }
+
+    #[test]
+    fn test_object_serialization_tree() {
+        let mut tree = Tree::new();
+        tree.add_entry(TreeEntry::new_file("file.txt".to_string(), Hash::compute(b"test")));
+        let obj = Object::Tree(tree);
+        
+        let bytes = obj.to_bytes().unwrap();
+        let deserialized = Object::from_bytes(&bytes).unwrap();
+        
+        assert_eq!(obj.object_type(), deserialized.object_type());
+        assert_eq!(obj.as_tree().unwrap().entries.len(), 
+                   deserialized.as_tree().unwrap().entries.len());
+    }
+
+    #[test]
+    fn test_object_serialization_commit() {
+        let commit = Commit::new(
+            Hash::compute(b"tree"),
+            vec![Hash::compute(b"parent")],
+            "Author".to_string(),
+            "Message".to_string(),
+        );
+        let obj = Object::Commit(commit);
+        
+        let bytes = obj.to_bytes().unwrap();
+        let deserialized = Object::from_bytes(&bytes).unwrap();
+        
+        assert_eq!(obj.object_type(), deserialized.object_type());
+        let commit_des = deserialized.as_commit().unwrap();
+        assert_eq!(commit_des.message, "Message");
+        assert_eq!(commit_des.author, "Author");
+    }
+
+    #[test]
+    fn test_object_hash() {
+        let blob = Blob::new(b"test".to_vec());
+        let obj = Object::Blob(blob);
+        
+        let hash1 = obj.hash().unwrap();
+        let hash2 = obj.hash().unwrap();
+        
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_object_as_methods() {
+        let blob = Blob::new(vec![1, 2, 3]);
+        let tree = Tree::new();
+        let commit = Commit::new(
+            Hash::compute(b"tree"),
+            vec![],
+            "Author".to_string(),
+            "Message".to_string(),
+        );
+        
+        let blob_obj = Object::Blob(blob);
+        let tree_obj = Object::Tree(tree);
+        let commit_obj = Object::Commit(commit);
+        
+        assert!(blob_obj.as_blob().is_some());
+        assert!(blob_obj.as_tree().is_none());
+        assert!(blob_obj.as_commit().is_none());
+        
+        assert!(tree_obj.as_tree().is_some());
+        assert!(tree_obj.as_blob().is_none());
+        assert!(tree_obj.as_commit().is_none());
+        
+        assert!(commit_obj.as_commit().is_some());
+        assert!(commit_obj.as_blob().is_none());
+        assert!(commit_obj.as_tree().is_none());
+    }
+
+    #[test]
+    fn test_object_type_from_str() {
+        assert_eq!(ObjectType::from_str("blob").unwrap(), ObjectType::Blob);
+        assert_eq!(ObjectType::from_str("tree").unwrap(), ObjectType::Tree);
+        assert_eq!(ObjectType::from_str("commit").unwrap(), ObjectType::Commit);
+        assert_eq!(ObjectType::from_str("tag").unwrap(), ObjectType::Tag);
+        assert!(ObjectType::from_str("invalid").is_err());
+    }
+
+    #[test]
+    fn test_object_type_as_str() {
+        assert_eq!(ObjectType::Blob.as_str(), "blob");
+        assert_eq!(ObjectType::Tree.as_str(), "tree");
+        assert_eq!(ObjectType::Commit.as_str(), "commit");
+        assert_eq!(ObjectType::Tag.as_str(), "tag");
     }
 }
 

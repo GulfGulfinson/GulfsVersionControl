@@ -11,6 +11,7 @@ pub mod module;
 pub mod hooks;
 pub mod protocol;
 pub mod remote;
+pub mod gc;
 
 pub use error::{Error, Result};
 pub use hash::{Hash, Oid};

@@ -142,6 +142,17 @@ enum Commands {
         /// Target directory (default: repo name from URL)
         directory: Option<PathBuf>,
     },
+
+    /// Run garbage collection
+    Gc {
+        /// Dry run (don't actually remove anything)
+        #[arg(short = 'n', long)]
+        dry_run: bool,
+
+        /// Verbose output
+        #[arg(short, long)]
+        verbose: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -307,6 +318,7 @@ fn main() {
         Commands::Fetch { remote } => commands::fetch(&remote),
         Commands::Pull { remote, branch } => commands::pull(&remote, branch.as_deref()),
         Commands::Clone { url, directory } => commands::clone(&url, directory.as_deref()),
+        Commands::Gc { dry_run, verbose } => commands::gc(*dry_run, *verbose),
     };
 
     if let Err(e) = result {

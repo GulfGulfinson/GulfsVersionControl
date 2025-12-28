@@ -77,12 +77,65 @@ mod tests {
     }
 
     #[test]
+    fn test_hash_deterministic() {
+        let data = b"test data";
+        let hash1 = Hash::compute(data);
+        let hash2 = Hash::compute(data);
+        assert_eq!(hash1, hash2);
+    }
+
+    #[test]
+    fn test_hash_different_data() {
+        let hash1 = Hash::compute(b"data1");
+        let hash2 = Hash::compute(b"data2");
+        assert_ne!(hash1, hash2);
+    }
+
+    #[test]
     fn test_hash_roundtrip() {
         let data = b"test data";
         let hash = Hash::compute(data);
         let hex = hash.to_hex();
         let parsed = Hash::from_hex(&hex).unwrap();
         assert_eq!(hash, parsed);
+    }
+
+    #[test]
+    fn test_hash_from_hex_invalid() {
+        assert!(Hash::from_hex("invalid").is_err());
+        assert!(Hash::from_hex("").is_err());
+        assert!(Hash::from_hex("too_short").is_err());
+    }
+
+    #[test]
+    fn test_hash_short() {
+        let hash = Hash::compute(b"test");
+        assert_eq!(hash.short(7).len(), 7);
+        assert_eq!(hash.short(16).len(), 16);
+        assert_eq!(hash.short(64).len(), 64);
+    }
+
+    #[test]
+    fn test_hash_display() {
+        let hash = Hash::compute(b"test");
+        let display = format!("{}", hash);
+        assert_eq!(display, hash.to_hex());
+    }
+
+    #[test]
+    fn test_hash_as_bytes() {
+        let data = b"test data";
+        let hash = Hash::compute(data);
+        let bytes = hash.as_bytes();
+        assert_eq!(bytes.len(), 32);
+    }
+
+    #[test]
+    fn test_oid_alias() {
+        let data = b"test";
+        let hash: Hash = Hash::compute(data);
+        let oid: Oid = Oid::compute(data);
+        assert_eq!(hash, oid);
     }
 }
 
