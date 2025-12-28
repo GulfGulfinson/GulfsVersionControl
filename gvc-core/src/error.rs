@@ -42,6 +42,18 @@ pub enum Error {
 
     #[error("Commit error: {0}")]
     CommitError(String),
+
+    #[error("Remote not found: {0}")]
+    RemoteNotFound(String),
+
+    #[error("Remote already exists: {0}")]
+    RemoteExists(String),
+
+    #[error("Remote error: {0}")]
+    RemoteError(String),
+
+    #[error("Network error: {0}")]
+    NetworkError(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

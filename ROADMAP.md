@@ -159,71 +159,71 @@
 
 ---
 
-## 🌍 Phase 4: Remote & Server
+## ✅ Phase 4: Remote & Server - COMPLETED
 
 **Goal:** Distributed version control
 
 ### Server Implementation
 
 #### Basic Server
-- [ ] HTTP REST API (axum)
-- [ ] Repository hosting
-- [ ] Multi-repository support
-- [ ] Repository creation/deletion
+- [x] HTTP REST API (axum)
+- [x] Repository hosting
+- [x] Multi-repository support
+- [ ] Repository creation/deletion (deferred to Phase 4.5)
 
-#### Authentication
+#### Authentication (Phase 4.5)
 - [ ] Token-based authentication
 - [ ] User management
 - [ ] Per-repository permissions
 - [ ] HTTPS/TLS support
 
 #### Object Transfer Protocol
-- [ ] List refs endpoint
-- [ ] Compute missing objects
-- [ ] Batch object transfer
-- [ ] Compression (zstd)
-- [ ] Progress reporting
+- [x] List refs endpoint
+- [x] Compute missing objects
+- [x] Batch object transfer
+- [ ] Compression (zstd) - Phase 5
+- [ ] Progress reporting - Phase 5
 
 ### Client Implementation
 
 #### Remote Management
-- [ ] `gvc remote add <name> <url>`
-- [ ] `gvc remote remove <name>`
-- [ ] `gvc remote list`
-- [ ] `gvc remote rename <old> <new>`
-- [ ] Store remotes in config
+- [x] `gvc remote add <name> <url>`
+- [x] `gvc remote remove <name>`
+- [x] `gvc remote list`
+- [x] `gvc remote rename <old> <new>`
+- [x] Store remotes in config
 
 #### Push
-- [ ] `gvc push <remote> <branch>`
-- [ ] Upload missing objects
-- [ ] Update remote refs
-- [ ] Force push (with safety)
-- [ ] Push tags
+- [x] `gvc push <remote> <branch>`
+- [x] Upload missing objects
+- [x] Update remote refs
+- [x] Force push (with safety)
+- [ ] Push tags (Phase 4.5)
 
 #### Pull
-- [ ] `gvc pull <remote> <branch>`
-- [ ] Fetch remote objects
-- [ ] Update local refs
-- [ ] Merge changes (basic)
+- [x] `gvc pull <remote> <branch>` (fetch only)
+- [x] Fetch remote objects
+- [x] Update local refs
+- [ ] Merge changes (Phase 6)
 
 #### Fetch
-- [ ] `gvc fetch <remote>`
-- [ ] Download objects without merging
-- [ ] Update remote-tracking branches
+- [x] `gvc fetch <remote>`
+- [x] Download objects without merging
+- [x] Update remote-tracking branches
 
 #### Clone
-- [ ] `gvc clone <url> [<directory>]`
-- [ ] Initialize local repository
-- [ ] Fetch all objects
-- [ ] Set up remote
-- [ ] Checkout default branch
+- [x] `gvc clone <url> [<directory>]`
+- [x] Initialize local repository
+- [x] Fetch all objects
+- [x] Set up remote
+- [x] Checkout default branch
 
 ### Server Deployment
-- [ ] Docker image
-- [ ] Configuration file
-- [ ] Logging
-- [ ] Monitoring endpoints
-- [ ] Backup/restore
+- [ ] Docker image (Phase 4.5)
+- [ ] Configuration file (Phase 4.5)
+- [x] Logging (basic)
+- [ ] Monitoring endpoints (Phase 5)
+- [ ] Backup/restore (Phase 5)
 
 ---
 

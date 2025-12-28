@@ -1,6 +1,7 @@
-use gvc_core::{Commit, Hash, Object, Repository, ModuleManager, ModuleManifest};
+use gvc_core::{Commit, Hash, Object, Repository, ModuleManager, ModuleManifest, RemoteManager, RemoteClient, ObjectData};
 use std::env;
 use std::path::{Path, PathBuf};
+use std::collections::HashSet;
 
 /// Initialize a new repository
 pub fn init(path: &Path) -> anyhow::Result<()> {
@@ -497,6 +498,354 @@ pub fn module_info(identifier: &str) -> anyhow::Result<()> {
         }
     }
 
+    Ok(())
+}
+
+// ============================================================================
+// REMOTE COMMANDS (Phase 4)
+// ============================================================================
+
+/// Add a remote repository
+pub fn remote_add(name: &str, url: &str) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let mut manager = RemoteManager::new(repo.gvc_dir())?;
+    
+    manager.add(name, url)?;
+    println!("Added remote '{}' -> {}", name, url);
+    
+    Ok(())
+}
+
+/// Remove a remote repository
+pub fn remote_remove(name: &str) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let mut manager = RemoteManager::new(repo.gvc_dir())?;
+    
+    manager.remove(name)?;
+    println!("Removed remote '{}'", name);
+    
+    Ok(())
+}
+
+/// Rename a remote repository
+pub fn remote_rename(old_name: &str, new_name: &str) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let mut manager = RemoteManager::new(repo.gvc_dir())?;
+    
+    manager.rename(old_name, new_name)?;
+    println!("Renamed remote '{}' to '{}'", old_name, new_name);
+    
+    Ok(())
+}
+
+/// List remote repositories
+pub fn remote_list(verbose: bool) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let manager = RemoteManager::new(repo.gvc_dir())?;
+    
+    let remotes = manager.list();
+    
+    if remotes.is_empty() {
+        println!("No remotes configured");
+    } else {
+        for remote in remotes {
+            if verbose {
+                println!("{}\t{} (fetch)", remote.name, remote.url);
+                println!("{}\t{} (push)", remote.name, remote.url);
+            } else {
+                println!("{}", remote.name);
+            }
+        }
+    }
+    
+    Ok(())
+}
+
+/// Push to a remote repository
+pub fn push(remote_name: &str, branch: Option<&str>, force: bool) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let manager = RemoteManager::new(repo.gvc_dir())?;
+    
+    // Get remote URL
+    let remote = manager.get(remote_name)
+        .ok_or_else(|| anyhow::anyhow!("Remote '{}' not found", remote_name))?;
+    
+    // Determine branch to push
+    let branch = if let Some(b) = branch {
+        b.to_string()
+    } else {
+        repo.current_branch()?
+            .ok_or_else(|| anyhow::anyhow!("Not currently on a branch"))?
+    };
+    
+    let ref_path = format!("refs/heads/{}", branch);
+    let local_oid = repo.resolve_ref(&ref_path)?
+        .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found", branch))?;
+    
+    println!("Pushing {} to {}/{}...", branch, remote_name, branch);
+    
+    // Create client
+    let client = RemoteClient::new(&remote.url)?;
+    
+    // Get remote refs
+    let remote_refs = client.list_refs("default")?;
+    let remote_oid = remote_refs.get(&ref_path).cloned();
+    
+    // Collect objects to push
+    let objects_to_push = collect_objects_to_push(&repo, &local_oid, remote_oid.as_ref())?;
+    
+    println!("Uploading {} object(s)...", objects_to_push.len());
+    
+    // Create ref update
+    let ref_update = gvc_core::protocol::RefUpdate {
+        name: ref_path.clone(),
+        old_oid: remote_oid,
+        new_oid: local_oid,
+        force,
+    };
+    
+    // Push
+    let result = client.push("default", objects_to_push, vec![ref_update])?;
+    println!("{}", result);
+    
+    Ok(())
+}
+
+/// Fetch from a remote repository
+pub fn fetch(remote_name: &str) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let manager = RemoteManager::new(repo.gvc_dir())?;
+    
+    // Get remote URL
+    let remote = manager.get(remote_name)
+        .ok_or_else(|| anyhow::anyhow!("Remote '{}' not found", remote_name))?;
+    
+    println!("Fetching from {}...", remote_name);
+    
+    // Create client
+    let client = RemoteClient::new(&remote.url)?;
+    
+    // List remote refs
+    let remote_refs = client.list_refs("default")?;
+    
+    println!("Found {} reference(s)", remote_refs.len());
+    
+    // Collect objects we need
+    let mut objects_to_fetch = Vec::new();
+    for (ref_name, oid) in &remote_refs {
+        // Check if we have this object
+        if repo.read_object(oid).is_err() {
+            objects_to_fetch.push(oid.clone());
+        }
+    }
+    
+    if objects_to_fetch.is_empty() {
+        println!("Already up to date");
+        return Ok(());
+    }
+    
+    println!("Downloading {} object(s)...", objects_to_fetch.len());
+    
+    // Fetch objects
+    let objects = client.get_objects("default", &objects_to_fetch)?;
+    
+    // Write objects to local storage
+    for obj_data in objects {
+        repo.write_object_raw(&obj_data.oid, &obj_data.data)?;
+    }
+    
+    // Update remote-tracking refs
+    for (ref_name, oid) in remote_refs {
+        if ref_name.starts_with("refs/heads/") {
+            let tracking_ref = ref_name.replace("refs/heads/", &format!("refs/remotes/{}/", remote_name));
+            repo.update_ref(&tracking_ref, &oid)?;
+        }
+    }
+    
+    println!("Fetch complete");
+    
+    Ok(())
+}
+
+/// Pull from a remote repository (fetch + merge)
+pub fn pull(remote_name: &str, branch: Option<&str>) -> anyhow::Result<()> {
+    // For now, just fetch - merging will be implemented in Phase 6
+    fetch(remote_name)?;
+    
+    println!();
+    println!("Note: Auto-merge not yet implemented (Phase 6)");
+    println!("Use 'gvc checkout' to switch to the fetched branch manually");
+    
+    Ok(())
+}
+
+/// Clone a remote repository
+pub fn clone(url: &str, directory: Option<&Path>) -> anyhow::Result<()> {
+    // Determine target directory
+    let target_dir = if let Some(dir) = directory {
+        dir.to_path_buf()
+    } else {
+        // Extract repository name from URL
+        let repo_name = url.split('/').last()
+            .and_then(|s| s.strip_suffix(".git").or(Some(s)))
+            .unwrap_or("repository");
+        PathBuf::from(repo_name)
+    };
+    
+    if target_dir.exists() {
+        return Err(anyhow::anyhow!("Directory '{}' already exists", target_dir.display()));
+    }
+    
+    println!("Cloning into '{}'...", target_dir.display());
+    
+    // Create and initialize repository
+    std::fs::create_dir_all(&target_dir)?;
+    let repo = Repository::init(&target_dir)?;
+    
+    // Add remote
+    let mut manager = RemoteManager::new(repo.gvc_dir())?;
+    manager.add("origin", url)?;
+    
+    println!("Added remote 'origin' -> {}", url);
+    
+    // Fetch all refs
+    let client = RemoteClient::new(url)?;
+    let remote_refs = client.list_refs("default")?;
+    
+    if remote_refs.is_empty() {
+        println!("Remote repository is empty");
+        return Ok(());
+    }
+    
+    println!("Fetching {} reference(s)...", remote_refs.len());
+    
+    // Collect all objects
+    let all_oids: Vec<_> = remote_refs.values().cloned().collect();
+    let objects = client.get_objects("default", &all_oids)?;
+    
+    println!("Downloading {} object(s)...", objects.len());
+    
+    // Write all objects
+    for obj_data in objects {
+        repo.write_object_raw(&obj_data.oid, &obj_data.data)?;
+    }
+    
+    // Update refs
+    for (ref_name, oid) in &remote_refs {
+        if ref_name.starts_with("refs/heads/") {
+            let tracking_ref = ref_name.replace("refs/heads/", "refs/remotes/origin/");
+            repo.update_ref(&tracking_ref, oid)?;
+        }
+    }
+    
+    // Determine default branch (prefer 'main', then 'master', then first available)
+    let default_branch = if remote_refs.contains_key("refs/heads/main") {
+        "main"
+    } else if remote_refs.contains_key("refs/heads/master") {
+        "master"
+    } else {
+        remote_refs.keys()
+            .find(|k| k.starts_with("refs/heads/"))
+            .and_then(|k| k.strip_prefix("refs/heads/"))
+            .unwrap_or("main")
+    };
+    
+    // Checkout default branch if it exists
+    if let Some(oid) = remote_refs.get(&format!("refs/heads/{}", default_branch)) {
+        repo.update_ref(&format!("refs/heads/{}", default_branch), oid)?;
+        env::set_current_dir(&target_dir)?;
+        repo.checkout(default_branch)?;
+        println!("Checked out branch '{}'", default_branch);
+    }
+    
+    println!("Clone complete");
+    
+    Ok(())
+}
+
+/// Collect objects that need to be pushed
+fn collect_objects_to_push(
+    repo: &Repository,
+    local_oid: &Hash,
+    remote_oid: Option<&Hash>,
+) -> anyhow::Result<Vec<ObjectData>> {
+    let mut objects = Vec::new();
+    let mut visited = HashSet::new();
+    let mut to_visit = vec![local_oid.clone()];
+    
+    // Mark remote objects as visited (we don't need to send them)
+    if let Some(remote) = remote_oid {
+        mark_reachable_objects(repo, remote, &mut visited)?;
+    }
+    
+    // Collect all reachable objects from local_oid
+    while let Some(oid) = to_visit.pop() {
+        if visited.contains(&oid) {
+            continue;
+        }
+        visited.insert(oid.clone());
+        
+        let raw_data = repo.read_object_raw(&oid)?;
+        let obj = repo.read_object(&oid)?;
+        
+        let obj_type = match obj {
+            Object::Blob(_) => gvc_core::protocol::ObjectType::Blob,
+            Object::Tree(_) => gvc_core::protocol::ObjectType::Tree,
+            Object::Commit(_) => gvc_core::protocol::ObjectType::Commit,
+        };
+        
+        objects.push(ObjectData {
+            oid: oid.clone(),
+            data: raw_data,
+            object_type: obj_type,
+        });
+        
+        // Add referenced objects to visit
+        match obj {
+            Object::Commit(commit) => {
+                to_visit.push(commit.tree.clone());
+                to_visit.extend(commit.parents.iter().cloned());
+            }
+            Object::Tree(tree) => {
+                for entry in tree.entries.values() {
+                    to_visit.push(entry.hash.clone());
+                }
+            }
+            Object::Blob(_) => {}
+        }
+    }
+    
+    Ok(objects)
+}
+
+/// Mark all objects reachable from a given OID
+fn mark_reachable_objects(
+    repo: &Repository,
+    oid: &Hash,
+    visited: &mut HashSet<Hash>,
+) -> anyhow::Result<()> {
+    if visited.contains(oid) {
+        return Ok(());
+    }
+    visited.insert(oid.clone());
+    
+    let obj = repo.read_object(oid)?;
+    
+    match obj {
+        Object::Commit(commit) => {
+            mark_reachable_objects(repo, &commit.tree, visited)?;
+            for parent in &commit.parents {
+                mark_reachable_objects(repo, parent, visited)?;
+            }
+        }
+        Object::Tree(tree) => {
+            for entry in tree.entries.values() {
+                mark_reachable_objects(repo, &entry.hash, visited)?;
+            }
+        }
+        Object::Blob(_) => {}
+    }
+    
     Ok(())
 }
 

@@ -96,6 +96,52 @@ enum Commands {
     /// Module operations
     #[command(subcommand)]
     Module(ModuleCommands),
+
+    /// Remote operations
+    #[command(subcommand)]
+    Remote(RemoteCommands),
+
+    /// Push to a remote repository
+    Push {
+        /// Remote name (default: origin)
+        #[arg(default_value = "origin")]
+        remote: String,
+
+        /// Branch name (default: current branch)
+        #[arg(short, long)]
+        branch: Option<String>,
+
+        /// Force push
+        #[arg(short, long)]
+        force: bool,
+    },
+
+    /// Fetch from a remote repository
+    Fetch {
+        /// Remote name (default: origin)
+        #[arg(default_value = "origin")]
+        remote: String,
+    },
+
+    /// Pull from a remote repository
+    Pull {
+        /// Remote name (default: origin)
+        #[arg(default_value = "origin")]
+        remote: String,
+
+        /// Branch name (default: current branch)
+        #[arg(short, long)]
+        branch: Option<String>,
+    },
+
+    /// Clone a remote repository
+    Clone {
+        /// Repository URL
+        url: String,
+
+        /// Target directory (default: repo name from URL)
+        directory: Option<PathBuf>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -180,6 +226,38 @@ enum TagCommands {
     List,
 }
 
+#[derive(Subcommand)]
+enum RemoteCommands {
+    /// Add a remote repository
+    Add {
+        /// Remote name
+        name: String,
+        /// Remote URL
+        url: String,
+    },
+
+    /// Remove a remote repository
+    Remove {
+        /// Remote name
+        name: String,
+    },
+
+    /// Rename a remote repository
+    Rename {
+        /// Old name
+        old_name: String,
+        /// New name
+        new_name: String,
+    },
+
+    /// List remote repositories
+    List {
+        /// Show URLs
+        #[arg(short, long)]
+        verbose: bool,
+    },
+}
+
 fn main() {
     let cli = Cli::parse();
 
@@ -215,6 +293,20 @@ fn main() {
             }
             ModuleCommands::Info { identifier } => commands::module_info(&identifier),
         },
+        Commands::Remote(cmd) => match cmd {
+            RemoteCommands::Add { name, url } => commands::remote_add(&name, &url),
+            RemoteCommands::Remove { name } => commands::remote_remove(&name),
+            RemoteCommands::Rename { old_name, new_name } => {
+                commands::remote_rename(&old_name, &new_name)
+            }
+            RemoteCommands::List { verbose } => commands::remote_list(*verbose),
+        },
+        Commands::Push { remote, branch, force } => {
+            commands::push(&remote, branch.as_deref(), *force)
+        }
+        Commands::Fetch { remote } => commands::fetch(&remote),
+        Commands::Pull { remote, branch } => commands::pull(&remote, branch.as_deref()),
+        Commands::Clone { url, directory } => commands::clone(&url, directory.as_deref()),
     };
 
     if let Err(e) = result {

@@ -6,8 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-[![Phase](https://img.shields.io/badge/Phase-3%20Complete-success.svg)](ROADMAP.md)
-[![Status](https://img.shields.io/badge/Status-Production--Ready-brightgreen.svg)](PROJECT_STATUS.md)
+[![Phase](https://img.shields.io/badge/Phase-4%20Complete-success.svg)](ROADMAP.md)
+[![Status](https://img.shields.io/badge/Status-Distributed%20Ready-brightgreen.svg)](PROJECT_STATUS.md)
 
 **🌟 [5-Min Quick Start](QUICKSTART.md) | [Complete Tutorial](TUTORIAL.md) | [Cheatsheet](CHEATSHEET.md) 🌟**
 
@@ -65,10 +65,24 @@ GVC is a fully functional version control system built to understand and innovat
 | Hook system | pre-commit, post-commit, etc. | ✅ |
 | TOML manifests | `module.toml` | ✅ |
 
+### ✅ Phase 4 (Remote & Server) - Complete 🎉
+
+| Feature | Command | Status |
+|---------|---------|--------|
+| Add remotes | `gvc remote add <name> <url>` | ✅ |
+| List remotes | `gvc remote list [-v]` | ✅ |
+| Push changes | `gvc push [remote] [branch]` | ✅ |
+| Fetch updates | `gvc fetch [remote]` | ✅ |
+| Pull changes | `gvc pull [remote]` | ✅ |
+| Clone repository | `gvc clone <url> [dir]` | ✅ |
+| HTTP server | `gvc-server` | ✅ |
+| JSON protocol | RESTful API | ✅ |
+
 ### 🚧 Coming Soon
 
-- **Phase 4**: Remote server, push/pull, clone
-- **Phase 5**: Performance optimization, packfiles, GC
+- **Phase 4.5**: Authentication, TLS, API tokens
+- **Phase 5**: Performance optimization, packfiles, GC, tests
+- **Phase 6**: Merge, rebase, conflict resolution
 
 See [ROADMAP.md](ROADMAP.md) for details.
 

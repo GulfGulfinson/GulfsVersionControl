@@ -6,6 +6,9 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Hash([u8; 32]);
 
+/// Object ID - alias for Hash (common in VCS terminology)
+pub type Oid = Hash;
+
 impl Hash {
     /// Compute hash from bytes
     pub fn compute(data: &[u8]) -> Self {

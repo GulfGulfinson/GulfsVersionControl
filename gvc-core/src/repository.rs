@@ -738,6 +738,54 @@ impl Repository {
         index.save(&self.gvc_dir)?;
         Ok(())
     }
+
+    /// Read an object by OID
+    pub fn read_object(&self, oid: &Hash) -> Result<Object> {
+        self.storage.load(oid)
+    }
+
+    /// Read raw object data by OID
+    pub fn read_object_raw(&self, oid: &Hash) -> Result<Vec<u8>> {
+        let path = self.gvc_dir.join("objects")
+            .join(&oid.to_hex()[0..2])
+            .join(&oid.to_hex()[2..]);
+        
+        if !path.exists() {
+            return Err(Error::ObjectNotFound(oid.to_hex()));
+        }
+        
+        Ok(fs::read(&path)?)
+    }
+
+    /// Write raw object data
+    pub fn write_object_raw(&self, oid: &Hash, data: &[u8]) -> Result<()> {
+        let hex = oid.to_hex();
+        let (prefix, suffix) = hex.split_at(2);
+        let dir = self.gvc_dir.join("objects").join(prefix);
+        fs::create_dir_all(&dir)?;
+        
+        let path = dir.join(suffix);
+        if !path.exists() {
+            fs::write(&path, data)?;
+        }
+        
+        Ok(())
+    }
+
+    /// Resolve a reference to an OID
+    pub fn resolve_ref(&self, ref_name: &str) -> Result<Option<Hash>> {
+        self.refs.resolve_ref(ref_name)
+    }
+
+    /// Update a reference to point to a new OID
+    pub fn update_ref(&self, ref_name: &str, oid: &Hash) -> Result<()> {
+        self.refs.update_ref(ref_name, oid)
+    }
+
+    /// Get the HEAD reference name
+    pub fn get_head(&self) -> Result<Option<String>> {
+        self.refs.get_head_symbolic()
+    }
 }
 
 /// Repository status information
