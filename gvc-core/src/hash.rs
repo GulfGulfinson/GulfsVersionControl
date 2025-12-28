@@ -22,12 +22,12 @@ impl Hash {
 
     /// Create from hex string
     pub fn from_hex(s: &str) -> Result<Self, crate::Error> {
-        let bytes = hex::decode(s)
-            .map_err(|e| crate::Error::InvalidHash(format!("Invalid hex: {}", e)))?;
-        
+        let bytes =
+            hex::decode(s).map_err(|e| crate::Error::InvalidHash(format!("Invalid hex: {}", e)))?;
+
         if bytes.len() != 32 {
             return Err(crate::Error::InvalidHash(
-                "Hash must be 32 bytes".to_string()
+                "Hash must be 32 bytes".to_string(),
             ));
         }
 
@@ -138,4 +138,3 @@ mod tests {
         assert_eq!(hash, oid);
     }
 }
-

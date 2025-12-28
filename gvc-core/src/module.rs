@@ -484,4 +484,3 @@ mod tests {
         assert_eq!(manifest.identifier(), "my-module@2.1.3");
     }
 }
-

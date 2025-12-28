@@ -80,7 +80,9 @@ impl HookManager {
 
         // Create example hooks
         for hook_type in HookType::all() {
-            let hook_path = self.hooks_dir.join(format!("{}.sample", hook_type.as_str()));
+            let hook_path = self
+                .hooks_dir
+                .join(format!("{}.sample", hook_type.as_str()));
             if !hook_path.exists() {
                 let sample_content = self.create_sample_hook(hook_type);
                 fs::write(&hook_path, sample_content)?;
@@ -208,10 +210,7 @@ impl HookManager {
         env_vars: &HashMap<String, String>,
     ) -> Result<HookResult> {
         // Determine how to execute the hook
-        let extension = hook_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
+        let extension = hook_path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
         let mut cmd = match extension {
             "sh" => {
@@ -349,11 +348,7 @@ mod tests {
         manager.init().unwrap();
 
         assert!(temp.path().join("hooks").exists());
-        assert!(temp
-            .path()
-            .join("hooks")
-            .join("pre-commit.sample")
-            .exists());
+        assert!(temp.path().join("hooks").join("pre-commit.sample").exists());
     }
 
     #[test]
@@ -362,4 +357,3 @@ mod tests {
         assert_eq!(HookType::PostCommit.as_str(), "post-commit");
     }
 }
-

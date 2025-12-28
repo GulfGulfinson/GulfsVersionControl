@@ -200,11 +200,7 @@ impl DiffEngine {
     }
 
     /// Group changes into hunks with context
-    fn group_into_hunks(
-        changes: Vec<Change>,
-        _old_total: usize,
-        _new_total: usize,
-    ) -> Vec<Hunk> {
+    fn group_into_hunks(changes: Vec<Change>, _old_total: usize, _new_total: usize) -> Vec<Hunk> {
         if changes.is_empty() {
             return Vec::new();
         }
@@ -374,4 +370,3 @@ mod tests {
         assert_eq!(lcs, vec![(0, 0), (2, 2)]);
     }
 }
-

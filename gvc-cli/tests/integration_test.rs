@@ -11,11 +11,11 @@ fn gvc_bin() -> PathBuf {
     path.pop(); // Remove test binary name
     path.pop(); // Remove 'deps'
     path.push("gvc");
-    
+
     if cfg!(windows) {
         path.set_extension("exe");
     }
-    
+
     path
 }
 
@@ -23,13 +23,13 @@ fn gvc_bin() -> PathBuf {
 fn test_init_creates_repository() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     let output = Command::new(gvc_bin())
         .arg("init")
         .arg(repo_path)
         .output()
         .expect("Failed to execute gvc init");
-    
+
     assert!(output.status.success());
     assert!(repo_path.join(".gvc").exists());
     assert!(repo_path.join(".gvc/objects").exists());
@@ -41,21 +41,21 @@ fn test_init_creates_repository() {
 fn test_init_already_exists() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // First init should succeed
     Command::new(gvc_bin())
         .arg("init")
         .arg(repo_path)
         .output()
         .expect("Failed to execute gvc init");
-    
+
     // Second init should fail
     let output = Command::new(gvc_bin())
         .arg("init")
         .arg(repo_path)
         .output()
         .expect("Failed to execute gvc init");
-    
+
     assert!(!output.status.success());
 }
 
@@ -63,18 +63,18 @@ fn test_init_already_exists() {
 fn test_add_and_status() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Init repository
     Command::new(gvc_bin())
         .arg("init")
         .arg(repo_path)
         .output()
         .unwrap();
-    
+
     // Create a test file
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"hello world").unwrap();
-    
+
     // Add the file
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -82,16 +82,16 @@ fn test_add_and_status() {
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
-    
+
     // Check status
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("status")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("test.txt") || stdout.contains("new file"));
@@ -101,25 +101,25 @@ fn test_add_and_status() {
 fn test_commit() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Init repository
     Command::new(gvc_bin())
         .arg("init")
         .arg(repo_path)
         .output()
         .unwrap();
-    
+
     // Create and add a file
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"hello world").unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("add")
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     // Commit
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -128,7 +128,7 @@ fn test_commit() {
         .arg("Test commit")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("Test commit"));
@@ -138,20 +138,24 @@ fn test_commit() {
 fn test_log() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Setup: init, add, commit
-    Command::new(gvc_bin()).arg("init").arg(repo_path).output().unwrap();
-    
+    Command::new(gvc_bin())
+        .arg("init")
+        .arg(repo_path)
+        .output()
+        .unwrap();
+
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"content").unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("add")
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("commit")
@@ -159,14 +163,14 @@ fn test_log() {
         .arg("First commit")
         .output()
         .unwrap();
-    
+
     // Check log
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("log")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("First commit"));
@@ -176,20 +180,24 @@ fn test_log() {
 fn test_branch_create_and_list() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Setup: init, add, commit (need at least one commit for branches)
-    Command::new(gvc_bin()).arg("init").arg(repo_path).output().unwrap();
-    
+    Command::new(gvc_bin())
+        .arg("init")
+        .arg(repo_path)
+        .output()
+        .unwrap();
+
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"content").unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("add")
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("commit")
@@ -197,7 +205,7 @@ fn test_branch_create_and_list() {
         .arg("Initial commit")
         .output()
         .unwrap();
-    
+
     // Create a new branch
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -206,9 +214,9 @@ fn test_branch_create_and_list() {
         .arg("feature")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
-    
+
     // List branches
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -216,7 +224,7 @@ fn test_branch_create_and_list() {
         .arg("list")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("feature"));
@@ -227,20 +235,24 @@ fn test_branch_create_and_list() {
 fn test_diff() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Setup
-    Command::new(gvc_bin()).arg("init").arg(repo_path).output().unwrap();
-    
+    Command::new(gvc_bin())
+        .arg("init")
+        .arg(repo_path)
+        .output()
+        .unwrap();
+
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"line1\n").unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("add")
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("commit")
@@ -248,17 +260,17 @@ fn test_diff() {
         .arg("Initial")
         .output()
         .unwrap();
-    
+
     // Modify file
     fs::write(&test_file, b"line1\nline2\n").unwrap();
-    
+
     // Check diff
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("diff")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("test.txt") || stdout.contains("line2"));
@@ -268,20 +280,24 @@ fn test_diff() {
 fn test_checkout() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Setup with initial commit
-    Command::new(gvc_bin()).arg("init").arg(repo_path).output().unwrap();
-    
+    Command::new(gvc_bin())
+        .arg("init")
+        .arg(repo_path)
+        .output()
+        .unwrap();
+
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"content").unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("add")
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("commit")
@@ -289,7 +305,7 @@ fn test_checkout() {
         .arg("Initial")
         .output()
         .unwrap();
-    
+
     // Create and checkout branch
     Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -298,14 +314,14 @@ fn test_checkout() {
         .arg("feature")
         .output()
         .unwrap();
-    
+
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("checkout")
         .arg("feature")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
 }
 
@@ -313,20 +329,24 @@ fn test_checkout() {
 fn test_tag() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Setup
-    Command::new(gvc_bin()).arg("init").arg(repo_path).output().unwrap();
-    
+    Command::new(gvc_bin())
+        .arg("init")
+        .arg(repo_path)
+        .output()
+        .unwrap();
+
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"content").unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("add")
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("commit")
@@ -334,7 +354,7 @@ fn test_tag() {
         .arg("v1.0")
         .output()
         .unwrap();
-    
+
     // Create tag
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -343,9 +363,9 @@ fn test_tag() {
         .arg("v1.0.0")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
-    
+
     // List tags
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -353,7 +373,7 @@ fn test_tag() {
         .arg("list")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("v1.0.0"));
@@ -363,13 +383,17 @@ fn test_tag() {
 fn test_reset() {
     let temp = TempDir::new().unwrap();
     let repo_path = temp.path();
-    
+
     // Setup
-    Command::new(gvc_bin()).arg("init").arg(repo_path).output().unwrap();
-    
+    Command::new(gvc_bin())
+        .arg("init")
+        .arg(repo_path)
+        .output()
+        .unwrap();
+
     let test_file = repo_path.join("test.txt");
     fs::write(&test_file, b"content").unwrap();
-    
+
     // Add file
     Command::new(gvc_bin())
         .current_dir(repo_path)
@@ -377,14 +401,13 @@ fn test_reset() {
         .arg("test.txt")
         .output()
         .unwrap();
-    
+
     // Reset (unstage)
     let output = Command::new(gvc_bin())
         .current_dir(repo_path)
         .arg("reset")
         .output()
         .unwrap();
-    
+
     assert!(output.status.success());
 }
-

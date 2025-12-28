@@ -1,11 +1,11 @@
-use crate::{
-    error::Result, Blob, Commit, Error, Hash, Object, Tree,
-    TreeEntry, DiffEngine, FileDiff, HookManager, HookType,
-};
+use crate::ignore::IgnoreFile;
 use crate::index::{Index, IndexEntry};
 use crate::refs::RefManager;
 use crate::storage::ObjectStorage;
-use crate::ignore::IgnoreFile;
+use crate::{
+    error::Result, Blob, Commit, DiffEngine, Error, FileDiff, Hash, HookManager, HookType, Object,
+    Tree, TreeEntry,
+};
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -156,13 +156,10 @@ impl Repository {
 
     /// Add directory recursively to index
     fn add_directory(&self, index: &mut Index, dir_path: &Path) -> Result<()> {
-        for entry in WalkDir::new(dir_path)
-            .into_iter()
-            .filter_entry(|e| {
-                // Skip .gvc directory
-                !e.path().components().any(|c| c.as_os_str() == ".gvc")
-            })
-        {
+        for entry in WalkDir::new(dir_path).into_iter().filter_entry(|e| {
+            // Skip .gvc directory
+            !e.path().components().any(|c| c.as_os_str() == ".gvc")
+        }) {
             let entry = entry?;
             if entry.file_type().is_file() {
                 self.add_file(index, entry.path())?;
@@ -186,14 +183,13 @@ impl Repository {
         env_vars.insert("GVC_MESSAGE".to_string(), message.to_string());
 
         let hook_results = hook_manager.execute(HookType::PreCommit, env_vars.clone())?;
-        
+
         // Check if any hook failed
         for result in &hook_results {
             if result.is_failure() {
                 return Err(Error::CommitError(format!(
                     "Pre-commit hook failed with exit code: {:?}\n{}",
-                    result.exit_code,
-                    result.stderr
+                    result.exit_code, result.stderr
                 )));
             }
         }
@@ -356,16 +352,18 @@ impl Repository {
     /// Checkout a branch
     pub fn checkout(&self, branch: &str) -> Result<()> {
         let ref_path = format!("refs/heads/{}", branch);
-        
+
         // Verify branch exists and get commit hash
-        let commit_hash = self.refs.resolve_ref(&ref_path)?
+        let commit_hash = self
+            .refs
+            .resolve_ref(&ref_path)?
             .ok_or_else(|| Error::BranchNotFound(branch.to_string()))?;
 
         // Check for uncommitted changes
         let status = self.status_detailed()?;
         if status.has_unstaged_changes() {
             return Err(Error::CommitError(
-                "You have unstaged changes. Commit or discard them before checkout.".to_string()
+                "You have unstaged changes. Commit or discard them before checkout.".to_string(),
             ));
         }
 
@@ -376,7 +374,7 @@ impl Repository {
         env_vars.insert("GVC_COMMIT_HASH".to_string(), commit_hash.to_hex());
 
         let hook_results = hook_manager.execute(HookType::PreCheckout, env_vars.clone())?;
-        
+
         // Check if any hook failed
         for result in &hook_results {
             if result.is_failure() {
@@ -389,9 +387,10 @@ impl Repository {
 
         // Get target commit tree
         let commit_obj = self.storage.load(&commit_hash)?;
-        let commit = commit_obj.as_commit()
+        let commit = commit_obj
+            .as_commit()
             .ok_or_else(|| Error::InvalidObjectType("Expected commit".to_string()))?;
-        
+
         let tree_obj = self.storage.load(&commit.tree)?;
 
         // Update working directory
@@ -406,13 +405,14 @@ impl Repository {
         // Execute post-checkout hooks
         let _ = hook_manager.execute(HookType::PostCheckout, env_vars);
         // Ignore post-checkout hook failures
-        
+
         Ok(())
     }
 
     /// Update working directory to match tree
     fn update_working_directory(&self, tree_obj: &Object, base_path: &Path) -> Result<()> {
-        let tree = tree_obj.as_tree()
+        let tree = tree_obj
+            .as_tree()
             .ok_or_else(|| Error::InvalidObjectType("Expected tree".to_string()))?;
 
         for entry in tree.entries.values() {
@@ -422,7 +422,8 @@ impl Repository {
             if entry.is_file() {
                 // Write file
                 let blob_obj = self.storage.load(&entry.hash)?;
-                let blob = blob_obj.as_blob()
+                let blob = blob_obj
+                    .as_blob()
                     .ok_or_else(|| Error::InvalidObjectType("Expected blob".to_string()))?;
 
                 // Create parent directories
@@ -450,8 +451,14 @@ impl Repository {
     }
 
     /// Recursively add tree entries to index
-    fn add_tree_to_index(&self, index: &mut Index, tree_obj: &Object, base_path: &Path) -> Result<()> {
-        let tree = tree_obj.as_tree()
+    fn add_tree_to_index(
+        &self,
+        index: &mut Index,
+        tree_obj: &Object,
+        base_path: &Path,
+    ) -> Result<()> {
+        let tree = tree_obj
+            .as_tree()
             .ok_or_else(|| Error::InvalidObjectType("Expected tree".to_string()))?;
 
         for entry in tree.entries.values() {
@@ -608,10 +615,7 @@ impl Repository {
 
                 if new_hash != entry.hash {
                     let old_blob = self.storage.load(&entry.hash)?;
-                    let hunks = DiffEngine::diff_blobs(
-                        old_blob.as_blob(),
-                        Some(&new_blob),
-                    )?;
+                    let hunks = DiffEngine::diff_blobs(old_blob.as_blob(), Some(&new_blob))?;
 
                     diffs.push(FileDiff {
                         path: path.to_string_lossy().to_string(),
@@ -747,14 +751,16 @@ impl Repository {
 
     /// Read raw object data by OID
     pub fn read_object_raw(&self, oid: &Hash) -> Result<Vec<u8>> {
-        let path = self.gvc_dir.join("objects")
+        let path = self
+            .gvc_dir
+            .join("objects")
             .join(&oid.to_hex()[0..2])
             .join(&oid.to_hex()[2..]);
-        
+
         if !path.exists() {
             return Err(Error::ObjectNotFound(oid.to_hex()));
         }
-        
+
         Ok(fs::read(&path)?)
     }
 
@@ -764,12 +770,12 @@ impl Repository {
         let (prefix, suffix) = hex.split_at(2);
         let dir = self.gvc_dir.join("objects").join(prefix);
         fs::create_dir_all(&dir)?;
-        
+
         let path = dir.join(suffix);
         if !path.exists() {
             fs::write(&path, data)?;
         }
-        
+
         Ok(())
     }
 
@@ -858,4 +864,3 @@ mod tests {
         assert_eq!(log[0].1.message, "Initial commit");
     }
 }
-

@@ -12,8 +12,8 @@ use axum::{
     routing::post,
     Router,
 };
-use gvc_core::protocol::{Request, Response as GvcResponse, ObjectData, ObjectType};
-use gvc_core::{Repository, Object};
+use gvc_core::protocol::{ObjectData, ObjectType, Request, Response as GvcResponse};
+use gvc_core::{Object, Repository};
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
@@ -56,7 +56,7 @@ impl ServerState {
     fn new(root_path: impl AsRef<Path>) -> Self {
         let root_path = root_path.as_ref().to_path_buf();
         std::fs::create_dir_all(&root_path).ok();
-        
+
         Self {
             root_path,
             repositories: RwLock::new(HashMap::new()),
@@ -79,9 +79,9 @@ impl ServerState {
             return Err(ServerError::RepositoryNotFound(name.to_string()));
         }
 
-        let repo = Repository::open(&repo_path)
-            .map_err(|e| ServerError::Internal(e.to_string()))?;
-        
+        let repo =
+            Repository::open(&repo_path).map_err(|e| ServerError::Internal(e.to_string()))?;
+
         let repo = Arc::new(repo);
 
         // Cache it
@@ -102,18 +102,14 @@ async fn handle_request(
     info!("Handling request: {:?}", request);
 
     let response = match request {
-        Request::ListRefs { repository } => {
-            handle_list_refs(&state, &repository)?
-        }
-        Request::GetObjects { repository, oids } => {
-            handle_get_objects(&state, &repository, &oids)?
-        }
-        Request::Push { repository, objects, ref_updates } => {
-            handle_push(&state, &repository, objects, ref_updates)?
-        }
-        Request::InfoRefs { repository } => {
-            handle_info_refs(&state, &repository)?
-        }
+        Request::ListRefs { repository } => handle_list_refs(&state, &repository)?,
+        Request::GetObjects { repository, oids } => handle_get_objects(&state, &repository, &oids)?,
+        Request::Push {
+            repository,
+            objects,
+            ref_updates,
+        } => handle_push(&state, &repository, objects, ref_updates)?,
+        Request::InfoRefs { repository } => handle_info_refs(&state, &repository)?,
     };
 
     Ok(Json(response))
@@ -122,35 +118,40 @@ async fn handle_request(
 /// List all references in a repository
 fn handle_list_refs(state: &ServerState, repo_name: &str) -> Result<GvcResponse, ServerError> {
     let repo = state.get_repository(repo_name)?;
-    
+
     let mut refs = HashMap::new();
-    
+
     // Get all branches
-    for branch_name in repo.list_branches()
-        .map_err(|e| ServerError::Internal(e.to_string()))? 
+    for branch_name in repo
+        .list_branches()
+        .map_err(|e| ServerError::Internal(e.to_string()))?
     {
-        if let Some(oid) = repo.resolve_ref(&format!("refs/heads/{}", branch_name))
-            .map_err(|e| ServerError::Internal(e.to_string()))? 
+        if let Some(oid) = repo
+            .resolve_ref(&format!("refs/heads/{}", branch_name))
+            .map_err(|e| ServerError::Internal(e.to_string()))?
         {
             refs.insert(format!("refs/heads/{}", branch_name), oid);
         }
     }
-    
+
     // Get all tags
-    for tag_name in repo.list_tags()
+    for tag_name in repo
+        .list_tags()
         .map_err(|e| ServerError::Internal(e.to_string()))?
     {
-        if let Some(oid) = repo.resolve_ref(&format!("refs/tags/{}", tag_name))
+        if let Some(oid) = repo
+            .resolve_ref(&format!("refs/tags/{}", tag_name))
             .map_err(|e| ServerError::Internal(e.to_string()))?
         {
             refs.insert(format!("refs/tags/{}", tag_name), oid);
         }
     }
-    
+
     // Get HEAD
-    let head = repo.get_head()
+    let head = repo
+        .get_head()
         .map_err(|e| ServerError::Internal(e.to_string()))?;
-    
+
     Ok(GvcResponse::Refs { refs, head })
 }
 
@@ -161,29 +162,31 @@ fn handle_get_objects(
     oids: &[gvc_core::hash::Oid],
 ) -> Result<GvcResponse, ServerError> {
     let repo = state.get_repository(repo_name)?;
-    
+
     let mut objects = Vec::new();
-    
+
     for oid in oids {
-        let obj = repo.read_object(oid)
+        let obj = repo
+            .read_object(oid)
             .map_err(|e| ServerError::ObjectNotFound(oid.to_string(), e.to_string()))?;
-        
-        let data = repo.read_object_raw(oid)
+
+        let data = repo
+            .read_object_raw(oid)
             .map_err(|e| ServerError::Internal(e.to_string()))?;
-        
+
         let object_type = match obj {
             Object::Blob(_) => ObjectType::Blob,
             Object::Tree(_) => ObjectType::Tree,
             Object::Commit(_) => ObjectType::Commit,
         };
-        
+
         objects.push(ObjectData {
             oid: oid.clone(),
             data,
             object_type,
         });
     }
-    
+
     Ok(GvcResponse::Objects { objects })
 }
 
@@ -195,22 +198,23 @@ fn handle_push(
     ref_updates: Vec<gvc_core::protocol::RefUpdate>,
 ) -> Result<GvcResponse, ServerError> {
     let repo = state.get_repository(repo_name)?;
-    
+
     // Write all objects
     for obj_data in objects {
         repo.write_object_raw(&obj_data.oid, &obj_data.data)
             .map_err(|e| ServerError::Internal(e.to_string()))?;
     }
-    
+
     // Update references
     let mut updated_refs = Vec::new();
-    
+
     for ref_update in ref_updates {
         // Safety check: verify old_oid if provided
         if let Some(old_oid) = &ref_update.old_oid {
-            let current = repo.resolve_ref(&ref_update.name)
+            let current = repo
+                .resolve_ref(&ref_update.name)
                 .map_err(|e| ServerError::Internal(e.to_string()))?;
-            
+
             if current.as_ref() != Some(old_oid) && !ref_update.force {
                 return Ok(GvcResponse::PushResult {
                     success: false,
@@ -222,14 +226,14 @@ fn handle_push(
                 });
             }
         }
-        
+
         // Update reference
         repo.update_ref(&ref_update.name, &ref_update.new_oid)
             .map_err(|e| ServerError::Internal(e.to_string()))?;
-        
+
         updated_refs.push(ref_update.name.clone());
     }
-    
+
     Ok(GvcResponse::PushResult {
         success: true,
         updated_refs,
@@ -240,7 +244,7 @@ fn handle_push(
 /// Get repository info
 fn handle_info_refs(state: &ServerState, repo_name: &str) -> Result<GvcResponse, ServerError> {
     let repo_path = state.root_path.join(repo_name);
-    
+
     if !repo_path.exists() {
         return Ok(GvcResponse::RepoInfo {
             exists: false,
@@ -248,15 +252,17 @@ fn handle_info_refs(state: &ServerState, repo_name: &str) -> Result<GvcResponse,
             branches: vec![],
         });
     }
-    
+
     let repo = state.get_repository(repo_name)?;
-    
-    let head = repo.get_head()
+
+    let head = repo
+        .get_head()
         .map_err(|e| ServerError::Internal(e.to_string()))?;
-    
-    let branches = repo.list_branches()
+
+    let branches = repo
+        .list_branches()
         .map_err(|e| ServerError::Internal(e.to_string()))?;
-    
+
     Ok(GvcResponse::RepoInfo {
         exists: true,
         head,
@@ -285,11 +291,9 @@ impl IntoResponse for ServerError {
                 "OBJECT_NOT_FOUND",
                 format!("Object {} not found: {}", oid, err),
             ),
-            ServerError::Internal(msg) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "INTERNAL_ERROR",
-                msg,
-            ),
+            ServerError::Internal(msg) => {
+                (StatusCode::INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", msg)
+            }
         };
 
         let response = GvcResponse::Error {

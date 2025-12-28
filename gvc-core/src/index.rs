@@ -30,11 +30,11 @@ impl Index {
     /// Load index from file
     pub fn load(gvc_dir: &Path) -> Result<Self> {
         let index_path = gvc_dir.join("index");
-        
+
         if !index_path.exists() {
             return Ok(Self::new());
         }
-        
+
         let data = fs::read(&index_path)?;
         bincode::deserialize(&data)
             .map_err(|e| Error::IndexError(format!("Failed to deserialize index: {}", e)))
@@ -45,7 +45,7 @@ impl Index {
         let index_path = gvc_dir.join("index");
         let data = bincode::serialize(self)
             .map_err(|e| Error::IndexError(format!("Failed to serialize index: {}", e)))?;
-        
+
         fs::write(&index_path, data)?;
         Ok(())
     }
@@ -101,14 +101,14 @@ mod tests {
     fn test_index_operations() {
         let mut index = Index::new();
         let hash = Hash::compute(b"test");
-        
+
         let entry = IndexEntry {
             path: PathBuf::from("test.txt"),
             hash,
             size: 100,
             mtime: 12345,
         };
-        
+
         index.add_entry(entry.clone());
         assert_eq!(index.len(), 1);
         assert!(index.get_entry(&PathBuf::from("test.txt")).is_some());
@@ -118,19 +118,18 @@ mod tests {
     fn test_index_persistence() {
         let temp = TempDir::new().unwrap();
         let mut index = Index::new();
-        
+
         let entry = IndexEntry {
             path: PathBuf::from("test.txt"),
             hash: Hash::compute(b"test"),
             size: 100,
             mtime: 12345,
         };
-        
+
         index.add_entry(entry);
         index.save(temp.path()).unwrap();
-        
+
         let loaded = Index::load(temp.path()).unwrap();
         assert_eq!(loaded.len(), 1);
     }
 }
-

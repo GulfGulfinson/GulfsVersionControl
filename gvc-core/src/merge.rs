@@ -1,6 +1,6 @@
 // Merge functionality for GVC
 
-use crate::{Error, Hash, Object, Repository, Result, Tree, TreeEntry, Commit};
+use crate::{Commit, Error, Hash, Object, Repository, Result, Tree, TreeEntry};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -8,18 +8,11 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone)]
 pub enum MergeResult {
     /// Fast-forward merge (no actual merge needed)
-    FastForward {
-        from: Hash,
-        to: Hash,
-    },
+    FastForward { from: Hash, to: Hash },
     /// Successful merge without conflicts
-    Success {
-        merge_commit: Hash,
-    },
+    Success { merge_commit: Hash },
     /// Merge with conflicts that need resolution
-    Conflicts {
-        conflicts: Vec<ConflictedFile>,
-    },
+    Conflicts { conflicts: Vec<ConflictedFile> },
     /// Already up to date
     UpToDate,
 }
@@ -64,12 +57,16 @@ impl<'a> MergeManager<'a> {
         message: Option<&str>,
     ) -> Result<MergeResult> {
         // Get current HEAD
-        let our_commit_oid = self.repo.resolve_ref("HEAD")?
+        let our_commit_oid = self
+            .repo
+            .resolve_ref("HEAD")?
             .ok_or_else(|| Error::CommitError("No HEAD commit".to_string()))?;
 
         // Get their commit
         let their_ref = format!("refs/heads/{}", their_branch);
-        let their_commit_oid = self.repo.resolve_ref(&their_ref)?
+        let their_commit_oid = self
+            .repo
+            .resolve_ref(&their_ref)?
             .ok_or_else(|| Error::BranchNotFound(their_branch.to_string()))?;
 
         // Check if already up to date
@@ -88,12 +85,13 @@ impl<'a> MergeManager<'a> {
 
         if strategy == MergeStrategy::FastForwardOnly {
             return Err(Error::CommitError(
-                "Cannot fast-forward, and --ff-only was specified".to_string()
+                "Cannot fast-forward, and --ff-only was specified".to_string(),
             ));
         }
 
         // Find merge base (common ancestor)
-        let base_oid = self.find_merge_base(&our_commit_oid, &their_commit_oid)?
+        let base_oid = self
+            .find_merge_base(&our_commit_oid, &their_commit_oid)?
             .ok_or_else(|| Error::CommitError("No common ancestor found".to_string()))?;
 
         // Perform three-way merge
@@ -111,12 +109,12 @@ impl<'a> MergeManager<'a> {
     fn can_fast_forward(&self, our: &Hash, their: &Hash) -> Result<bool> {
         // Can fast-forward if their is an ancestor of our
         let mut current = Some(their.clone());
-        
+
         while let Some(oid) = current {
             if oid == *our {
                 return Ok(true);
             }
-            
+
             let obj = self.repo.read_object(&oid)?;
             if let Some(commit) = obj.as_commit() {
                 current = commit.parents.first().cloned();
@@ -124,27 +122,33 @@ impl<'a> MergeManager<'a> {
                 break;
             }
         }
-        
+
         Ok(false)
     }
 
     /// Perform fast-forward merge
     fn do_fast_forward(&self, to: &Hash) -> Result<MergeResult> {
-        let from = self.repo.resolve_ref("HEAD")?
+        let from = self
+            .repo
+            .resolve_ref("HEAD")?
             .ok_or_else(|| Error::CommitError("No HEAD".to_string()))?;
-        
+
         // Update HEAD to point to their commit
         self.repo.update_ref("HEAD", to)?;
-        
+
         // Update working directory
         let commit_obj = self.repo.read_object(to)?;
-        let commit = commit_obj.as_commit()
+        let commit = commit_obj
+            .as_commit()
             .ok_or_else(|| Error::InvalidObjectType("Expected commit".to_string()))?;
         let tree_obj = self.repo.read_object(&commit.tree)?;
-        
+
         self.update_working_directory_from_tree(&tree_obj, &PathBuf::new())?;
-        
-        Ok(MergeResult::FastForward { from, to: to.clone() })
+
+        Ok(MergeResult::FastForward {
+            from,
+            to: to.clone(),
+        })
     }
 
     /// Find common ancestor (merge base)
@@ -152,12 +156,12 @@ impl<'a> MergeManager<'a> {
         // Simple algorithm: find first common ancestor
         let ancestors1 = self.get_ancestors(oid1)?;
         let mut current = Some(oid2.clone());
-        
+
         while let Some(oid) = current {
             if ancestors1.contains(&oid) {
                 return Ok(Some(oid));
             }
-            
+
             let obj = self.repo.read_object(&oid)?;
             if let Some(commit) = obj.as_commit() {
                 current = commit.parents.first().cloned();
@@ -165,7 +169,7 @@ impl<'a> MergeManager<'a> {
                 break;
             }
         }
-        
+
         Ok(None)
     }
 
@@ -173,19 +177,19 @@ impl<'a> MergeManager<'a> {
     fn get_ancestors(&self, oid: &Hash) -> Result<Vec<Hash>> {
         let mut ancestors = Vec::new();
         let mut to_visit = vec![oid.clone()];
-        
+
         while let Some(current) = to_visit.pop() {
             if ancestors.contains(&current) {
                 continue;
             }
             ancestors.push(current.clone());
-            
+
             let obj = self.repo.read_object(&current)?;
             if let Some(commit) = obj.as_commit() {
                 to_visit.extend(commit.parents.iter().cloned());
             }
         }
-        
+
         Ok(ancestors)
     }
 
@@ -246,7 +250,7 @@ impl<'a> MergeManager<'a> {
 
         // Create merged tree
         let merged_tree = self.create_tree_from_files(&merged_files)?;
-        
+
         // Create merge commit
         let default_message = format!("Merge branch '{}'", their_branch);
         let merge_message = message.unwrap_or(&default_message);
@@ -256,17 +260,17 @@ impl<'a> MergeManager<'a> {
             "Author".to_string(), // TODO: Get from config
             merge_message.to_string(),
         );
-        
+
         let merge_commit_obj = Object::Commit(merge_commit);
         let merge_commit_hash = self.repo.write_object(&merge_commit_obj)?;
-        
+
         // Update HEAD
         self.repo.update_ref("HEAD", &merge_commit_hash)?;
-        
+
         // Update working directory
         let tree_obj = self.repo.read_object(&merged_tree)?;
         self.update_working_directory_from_tree(&tree_obj, &PathBuf::new())?;
-        
+
         Ok(MergeResult::Success {
             merge_commit: merge_commit_hash,
         })
@@ -283,20 +287,14 @@ impl<'a> MergeManager<'a> {
     ) -> Result<FileMergeResult> {
         // Clone for later use
         let base_copy = base.clone();
-        
+
         match (base, ours, theirs) {
             // File unchanged
-            (Some(b), Some(o), Some(t)) if b == o && o == t => {
-                Ok(FileMergeResult::Success(o))
-            }
+            (Some(b), Some(o), Some(t)) if b == o && o == t => Ok(FileMergeResult::Success(o)),
             // We modified, they didn't
-            (Some(b), Some(o), Some(t)) if b == t && b != o => {
-                Ok(FileMergeResult::Success(o))
-            }
+            (Some(b), Some(o), Some(t)) if b == t && b != o => Ok(FileMergeResult::Success(o)),
             // They modified, we didn't
-            (Some(b), Some(o), Some(t)) if b == o && b != t => {
-                Ok(FileMergeResult::Success(t))
-            }
+            (Some(b), Some(o), Some(t)) if b == o && b != t => Ok(FileMergeResult::Success(t)),
             // Both modified (potential conflict)
             (Some(_), Some(o), Some(t)) if o != t => {
                 match strategy {
@@ -322,19 +320,15 @@ impl<'a> MergeManager<'a> {
                 }
             }
             // File deleted by us
-            (Some(_), None, Some(t)) => {
-                match strategy {
-                    MergeStrategy::Ours => Ok(FileMergeResult::Deleted),
-                    _ => Ok(FileMergeResult::Success(t)),
-                }
-            }
+            (Some(_), None, Some(t)) => match strategy {
+                MergeStrategy::Ours => Ok(FileMergeResult::Deleted),
+                _ => Ok(FileMergeResult::Success(t)),
+            },
             // File deleted by them
-            (Some(_), Some(o), None) => {
-                match strategy {
-                    MergeStrategy::Theirs => Ok(FileMergeResult::Deleted),
-                    _ => Ok(FileMergeResult::Success(o)),
-                }
-            }
+            (Some(_), Some(o), None) => match strategy {
+                MergeStrategy::Theirs => Ok(FileMergeResult::Deleted),
+                _ => Ok(FileMergeResult::Success(o)),
+            },
             // File deleted by both
             (Some(_), None, None) => Ok(FileMergeResult::Deleted),
             // File doesn't exist anywhere
@@ -369,7 +363,8 @@ impl<'a> MergeManager<'a> {
     /// Read blob content
     fn read_blob_content(&self, hash: &Hash) -> Result<Vec<u8>> {
         let obj = self.repo.read_object(hash)?;
-        let blob = obj.as_blob()
+        let blob = obj
+            .as_blob()
             .ok_or_else(|| Error::InvalidObjectType("Expected blob".to_string()))?;
         Ok(blob.data.clone())
     }
@@ -377,7 +372,7 @@ impl<'a> MergeManager<'a> {
     /// Write conflict markers to file
     fn write_conflict_markers(&self, conflict: &ConflictedFile) -> Result<()> {
         let mut content = Vec::new();
-        
+
         content.extend_from_slice(b"<<<<<<< HEAD\n");
         if let Some(ours) = &conflict.ours {
             content.extend_from_slice(ours);
@@ -387,20 +382,21 @@ impl<'a> MergeManager<'a> {
             content.extend_from_slice(theirs);
         }
         content.extend_from_slice(b">>>>>>> MERGE\n");
-        
+
         let full_path = self.repo.work_dir().join(&conflict.path);
         if let Some(parent) = full_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
         std::fs::write(&full_path, content)?;
-        
+
         Ok(())
     }
 
     // Helper methods
     fn get_commit_tree(&self, commit_oid: &Hash) -> Result<Object> {
         let commit_obj = self.repo.read_object(commit_oid)?;
-        let commit = commit_obj.as_commit()
+        let commit = commit_obj
+            .as_commit()
             .ok_or_else(|| Error::InvalidObjectType("Expected commit".to_string()))?;
         self.repo.read_object(&commit.tree)
     }
@@ -417,12 +413,13 @@ impl<'a> MergeManager<'a> {
         base_path: &Path,
         files: &mut BTreeMap<PathBuf, Hash>,
     ) -> Result<()> {
-        let tree = tree_obj.as_tree()
+        let tree = tree_obj
+            .as_tree()
             .ok_or_else(|| Error::InvalidObjectType("Expected tree".to_string()))?;
-        
+
         for entry in tree.entries.values() {
             let entry_path = base_path.join(&entry.name);
-            
+
             if entry.is_file() {
                 files.insert(entry_path, entry.hash.clone());
             } else if entry.is_dir() {
@@ -430,19 +427,19 @@ impl<'a> MergeManager<'a> {
                 self.collect_tree_files(&subtree, &entry_path, files)?;
             }
         }
-        
+
         Ok(())
     }
 
     fn create_tree_from_files(&self, files: &BTreeMap<PathBuf, Hash>) -> Result<Hash> {
         // Create tree structure
         let mut root_tree = Tree::new();
-        
+
         for (path, hash) in files {
             let components: Vec<_> = path.components().collect();
             self.add_file_to_tree(&mut root_tree, &components, hash)?;
         }
-        
+
         let tree_obj = Object::Tree(root_tree);
         self.repo.write_object(&tree_obj)
     }
@@ -456,9 +453,9 @@ impl<'a> MergeManager<'a> {
         if components.is_empty() {
             return Ok(());
         }
-        
+
         let name = components[0].as_os_str().to_string_lossy().to_string();
-        
+
         if components.len() == 1 {
             // Leaf node - add file
             tree.add_entry(TreeEntry::new_file(name, hash.clone()));
@@ -467,23 +464,29 @@ impl<'a> MergeManager<'a> {
             // TODO: Implement proper tree building for directories
             tree.add_entry(TreeEntry::new_file(name, hash.clone()));
         }
-        
+
         Ok(())
     }
 
-    fn update_working_directory_from_tree(&self, tree_obj: &Object, base_path: &Path) -> Result<()> {
-        let tree = tree_obj.as_tree()
+    fn update_working_directory_from_tree(
+        &self,
+        tree_obj: &Object,
+        base_path: &Path,
+    ) -> Result<()> {
+        let tree = tree_obj
+            .as_tree()
             .ok_or_else(|| Error::InvalidObjectType("Expected tree".to_string()))?;
-        
+
         for entry in tree.entries.values() {
             let entry_path = base_path.join(&entry.name);
             let full_path = self.repo.work_dir().join(&entry_path);
-            
+
             if entry.is_file() {
                 let blob_obj = self.repo.read_object(&entry.hash)?;
-                let blob = blob_obj.as_blob()
+                let blob = blob_obj
+                    .as_blob()
                     .ok_or_else(|| Error::InvalidObjectType("Expected blob".to_string()))?;
-                
+
                 if let Some(parent) = full_path.parent() {
                     std::fs::create_dir_all(parent)?;
                 }
@@ -493,7 +496,7 @@ impl<'a> MergeManager<'a> {
                 self.update_working_directory_from_tree(&subtree, &entry_path)?;
             }
         }
-        
+
         Ok(())
     }
 }
@@ -512,4 +515,3 @@ impl Repository {
         storage.store(object)
     }
 }
-

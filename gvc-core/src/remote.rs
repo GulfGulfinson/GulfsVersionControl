@@ -7,9 +7,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::Error;
-use crate::protocol::{Request, Response, ObjectData, RefUpdate};
 use crate::hash::Oid;
+use crate::protocol::{ObjectData, RefUpdate, Request, Response};
+use crate::Error;
 
 /// Remote repository configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,47 +41,42 @@ impl RemoteManager {
     pub fn new(repo_path: impl AsRef<Path>) -> Result<Self> {
         let repo_path = repo_path.as_ref().to_path_buf();
         let remotes = Self::load_remotes(&repo_path)?;
-        
-        Ok(Self {
-            repo_path,
-            remotes,
-        })
+
+        Ok(Self { repo_path, remotes })
     }
 
     /// Load remotes from config file
     fn load_remotes(repo_path: &Path) -> Result<HashMap<String, RemoteConfig>> {
         let config_path = repo_path.join(".gvc").join("remotes.toml");
-        
+
         if !config_path.exists() {
             return Ok(HashMap::new());
         }
 
-        let content = fs::read_to_string(&config_path)
-            .context("Failed to read remotes config")?;
-        
-        let remotes: HashMap<String, RemoteConfig> = toml::from_str(&content)
-            .context("Failed to parse remotes config")?;
-        
+        let content = fs::read_to_string(&config_path).context("Failed to read remotes config")?;
+
+        let remotes: HashMap<String, RemoteConfig> =
+            toml::from_str(&content).context("Failed to parse remotes config")?;
+
         Ok(remotes)
     }
 
     /// Save remotes to config file
     fn save_remotes(&self) -> Result<()> {
         let config_path = self.repo_path.join(".gvc").join("remotes.toml");
-        
-        let content = toml::to_string_pretty(&self.remotes)
-            .context("Failed to serialize remotes")?;
-        
-        fs::write(&config_path, content)
-            .context("Failed to write remotes config")?;
-        
+
+        let content =
+            toml::to_string_pretty(&self.remotes).context("Failed to serialize remotes")?;
+
+        fs::write(&config_path, content).context("Failed to write remotes config")?;
+
         Ok(())
     }
 
     /// Add a new remote
     pub fn add(&mut self, name: impl Into<String>, url: impl Into<String>) -> Result<()> {
         let name = name.into();
-        
+
         if self.remotes.contains_key(&name) {
             return Err(Error::RemoteExists(name).into());
         }
@@ -89,7 +84,7 @@ impl RemoteManager {
         let remote = RemoteConfig::new(name.clone(), url);
         self.remotes.insert(name, remote);
         self.save_remotes()?;
-        
+
         Ok(())
     }
 
@@ -101,14 +96,14 @@ impl RemoteManager {
 
         self.remotes.remove(name);
         self.save_remotes()?;
-        
+
         Ok(())
     }
 
     /// Rename a remote
     pub fn rename(&mut self, old_name: &str, new_name: impl Into<String>) -> Result<()> {
         let new_name = new_name.into();
-        
+
         if !self.remotes.contains_key(old_name) {
             return Err(Error::RemoteNotFound(old_name.to_string()).into());
         }
@@ -122,7 +117,7 @@ impl RemoteManager {
         remote.fetch = format!("+refs/heads/*:refs/remotes/{}/*", new_name);
         self.remotes.insert(new_name, remote);
         self.save_remotes()?;
-        
+
         Ok(())
     }
 
@@ -155,18 +150,16 @@ impl RemoteClient {
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .context("Failed to create HTTP client")?;
-        
-        Ok(Self {
-            base_url,
-            client,
-        })
+
+        Ok(Self { base_url, client })
     }
 
     /// Send a request to the server
     pub fn send_request(&self, request: &Request) -> Result<Response> {
         let url = format!("{}/api/v1/gvc", self.base_url);
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .json(request)
             .send()
@@ -175,14 +168,11 @@ impl RemoteClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().unwrap_or_default();
-            return Err(Error::RemoteError(
-                format!("HTTP {}: {}", status, text)
-            ).into());
+            return Err(Error::RemoteError(format!("HTTP {}: {}", status, text)).into());
         }
 
-        let result: Response = response.json()
-            .context("Failed to parse response")?;
-        
+        let result: Response = response.json().context("Failed to parse response")?;
+
         Ok(result)
     }
 
@@ -191,9 +181,9 @@ impl RemoteClient {
         let request = Request::ListRefs {
             repository: repository.to_string(),
         };
-        
+
         let response = self.send_request(&request)?;
-        
+
         match response {
             Response::Refs { refs, .. } => Ok(refs),
             Response::Error { code, message } => {
@@ -209,9 +199,9 @@ impl RemoteClient {
             repository: repository.to_string(),
             oids: oids.to_vec(),
         };
-        
+
         let response = self.send_request(&request)?;
-        
+
         match response {
             Response::Objects { objects } => Ok(objects),
             Response::Error { code, message } => {
@@ -233,11 +223,13 @@ impl RemoteClient {
             objects,
             ref_updates,
         };
-        
+
         let response = self.send_request(&request)?;
-        
+
         match response {
-            Response::PushResult { success, message, .. } => {
+            Response::PushResult {
+                success, message, ..
+            } => {
                 if success {
                     Ok(message)
                 } else {
@@ -264,25 +256,24 @@ mod tests {
         fs::create_dir_all(repo_path.join(".gvc"))?;
 
         let mut manager = RemoteManager::new(repo_path)?;
-        
+
         // Add remote
         manager.add("origin", "https://example.com/repo.git")?;
         assert!(manager.get("origin").is_some());
-        
+
         // List remotes
         let remotes = manager.list();
         assert_eq!(remotes.len(), 1);
-        
+
         // Rename remote
         manager.rename("origin", "upstream")?;
         assert!(manager.get("upstream").is_some());
         assert!(manager.get("origin").is_none());
-        
+
         // Remove remote
         manager.remove("upstream")?;
         assert!(manager.get("upstream").is_none());
-        
+
         Ok(())
     }
 }
-

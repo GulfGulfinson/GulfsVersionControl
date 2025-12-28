@@ -1,9 +1,11 @@
-use gvc_core::{Commit, Hash, Object, Repository, ModuleManager, RemoteManager, RemoteClient, ObjectData};
 use gvc_core::gc::{GarbageCollector, GcStats};
 use gvc_core::merge::{MergeManager, MergeResult, MergeStrategy};
+use gvc_core::{
+    Commit, Hash, ModuleManager, Object, ObjectData, RemoteClient, RemoteManager, Repository,
+};
+use std::collections::HashSet;
 use std::env;
 use std::path::{Path, PathBuf};
-use std::collections::HashSet;
 
 /// Initialize a new repository
 pub fn init(path: &Path) -> anyhow::Result<()> {
@@ -15,28 +17,28 @@ pub fn init(path: &Path) -> anyhow::Result<()> {
 /// Show repository status
 pub fn status() -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
-    
+
     // Get current branch
     if let Some(branch) = repo.current_branch()? {
         println!("On branch {}", branch);
     } else {
         println!("HEAD detached");
     }
-    
+
     // Get detailed status
     let status = repo.status_detailed()?;
-    
+
     if status.is_clean() {
         println!("\nNothing to commit, working tree clean");
         return Ok(());
     }
-    
+
     // Staged changes
     if status.has_staged_changes() {
         println!("\nChanges to be committed:");
         println!("  (use \"gvc reset <file>...\" to unstage)");
         println!();
-        
+
         for path in &status.staged_new {
             println!("  \x1b[32mnew file:   {}\x1b[0m", path.display());
         }
@@ -44,13 +46,13 @@ pub fn status() -> anyhow::Result<()> {
             println!("  \x1b[32mmodified:   {}\x1b[0m", path.display());
         }
     }
-    
+
     // Unstaged changes
     if status.has_unstaged_changes() {
         println!("\nChanges not staged for commit:");
         println!("  (use \"gvc add <file>...\" to update what will be committed)");
         println!();
-        
+
         for path in &status.modified {
             println!("  \x1b[31mmodified:   {}\x1b[0m", path.display());
         }
@@ -58,18 +60,18 @@ pub fn status() -> anyhow::Result<()> {
             println!("  \x1b[31mdeleted:    {}\x1b[0m", path.display());
         }
     }
-    
+
     // Untracked files
     if status.has_untracked_files() {
         println!("\nUntracked files:");
         println!("  (use \"gvc add <file>...\" to include in what will be committed)");
         println!();
-        
+
         for path in &status.untracked {
             println!("  \x1b[31m{}\x1b[0m", path.display());
         }
     }
-    
+
     Ok(())
 }
 
@@ -84,7 +86,7 @@ pub fn add(paths: &[PathBuf]) -> anyhow::Result<()> {
 /// Create a commit
 pub fn commit(message: &str, author: Option<&str>) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
-    
+
     // Get author from parameter or environment
     let author = author
         .map(String::from)
@@ -92,9 +94,9 @@ pub fn commit(message: &str, author: Option<&str>) -> anyhow::Result<()> {
         .or_else(|| env::var("USER").ok())
         .or_else(|| env::var("USERNAME").ok())
         .unwrap_or_else(|| "Unknown".to_string());
-    
+
     let hash = repo.commit(message, &author)?;
-    
+
     println!("[{}] {}", hash.short(7), message);
     Ok(())
 }
@@ -103,21 +105,25 @@ pub fn commit(message: &str, author: Option<&str>) -> anyhow::Result<()> {
 pub fn log(max_count: Option<usize>, oneline: bool) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let commits = repo.log(max_count)?;
-    
+
     if commits.is_empty() {
         println!("No commits yet");
         return Ok(());
     }
-    
+
     for (hash, commit) in commits {
         if oneline {
-            println!("{} {}", hash.short(7), commit.message.lines().next().unwrap_or(""));
+            println!(
+                "{} {}",
+                hash.short(7),
+                commit.message.lines().next().unwrap_or("")
+            );
         } else {
             print_commit(&hash, &commit);
             println!();
         }
     }
-    
+
     Ok(())
 }
 
@@ -143,29 +149,29 @@ fn format_timestamp(timestamp: i64) -> String {
 /// Show differences
 pub fn diff(staged: bool) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
-    
+
     let diffs = if staged {
         repo.diff_staged()?
     } else {
         repo.diff_unstaged()?
     };
-    
+
     if diffs.is_empty() {
         println!("No changes");
         return Ok(());
     }
-    
+
     for diff in diffs {
         print_diff(&diff);
     }
-    
+
     Ok(())
 }
 
 /// Print a file diff
 fn print_diff(diff: &gvc_core::FileDiff) {
     use gvc_core::Change;
-    
+
     // File header
     if diff.is_new_file() {
         println!("\x1b[1mnew file: {}\x1b[0m", diff.path);
@@ -174,14 +180,14 @@ fn print_diff(diff: &gvc_core::FileDiff) {
     } else {
         println!("\x1b[1mdiff --gvc a/{} b/{}\x1b[0m", diff.path, diff.path);
     }
-    
+
     // Hunks
     for hunk in &diff.hunks {
         println!(
             "\x1b[36m@@ -{},{} +{},{} @@\x1b[0m",
             hunk.old_start, hunk.old_count, hunk.new_start, hunk.new_count
         );
-        
+
         for change in &hunk.changes {
             match change {
                 Change::Add(line) => println!("\x1b[32m+{}\x1b[0m", line),
@@ -190,7 +196,7 @@ fn print_diff(diff: &gvc_core::FileDiff) {
             }
         }
     }
-    
+
     println!();
 }
 
@@ -199,13 +205,13 @@ pub fn show(hash_str: &str) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let hash = Hash::from_hex(hash_str)?;
     let obj = repo.get_object(&hash)?;
-    
+
     match obj {
         Object::Blob(blob) => {
             println!("blob {}", hash.to_hex());
             println!("size: {} bytes", blob.size());
             println!();
-            
+
             // Try to print as text
             if let Ok(text) = String::from_utf8(blob.data.clone()) {
                 print!("{}", text);
@@ -230,7 +236,7 @@ pub fn show(hash_str: &str) -> anyhow::Result<()> {
             print_commit(&hash, &commit);
         }
     }
-    
+
     Ok(())
 }
 
@@ -255,12 +261,12 @@ pub fn branch_list() -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let branches = repo.list_branches()?;
     let current = repo.current_branch()?;
-    
+
     if branches.is_empty() {
         println!("No branches yet");
         return Ok(());
     }
-    
+
     for branch in branches {
         if Some(&branch) == current.as_ref() {
             println!("* {}", branch);
@@ -268,7 +274,7 @@ pub fn branch_list() -> anyhow::Result<()> {
             println!("  {}", branch);
         }
     }
-    
+
     Ok(())
 }
 
@@ -292,23 +298,23 @@ pub fn tag_create(name: &str) -> anyhow::Result<()> {
 pub fn tag_list() -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let tags = repo.list_tags()?;
-    
+
     if tags.is_empty() {
         println!("No tags yet");
         return Ok(());
     }
-    
+
     for tag in tags {
         println!("{}", tag);
     }
-    
+
     Ok(())
 }
 
 /// Reset (unstage) files
 pub fn reset(paths: &[PathBuf]) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
-    
+
     if paths.is_empty() {
         // Reset all
         repo.reset_all()?;
@@ -317,16 +323,12 @@ pub fn reset(paths: &[PathBuf]) -> anyhow::Result<()> {
         repo.reset(paths)?;
         println!("Unstaged {} file(s)", paths.len());
     }
-    
+
     Ok(())
 }
 
 /// Create a new module scaffold
-pub fn module_create(
-    name: &str,
-    path: Option<&Path>,
-    author: Option<&str>,
-) -> anyhow::Result<()> {
+pub fn module_create(name: &str, path: Option<&Path>, author: Option<&str>) -> anyhow::Result<()> {
     let target_dir = path
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(name));
@@ -511,10 +513,10 @@ pub fn module_info(identifier: &str) -> anyhow::Result<()> {
 pub fn remote_add(name: &str, url: &str) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let mut manager = RemoteManager::new(repo.gvc_dir())?;
-    
+
     manager.add(name, url)?;
     println!("Added remote '{}' -> {}", name, url);
-    
+
     Ok(())
 }
 
@@ -522,10 +524,10 @@ pub fn remote_add(name: &str, url: &str) -> anyhow::Result<()> {
 pub fn remote_remove(name: &str) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let mut manager = RemoteManager::new(repo.gvc_dir())?;
-    
+
     manager.remove(name)?;
     println!("Removed remote '{}'", name);
-    
+
     Ok(())
 }
 
@@ -533,10 +535,10 @@ pub fn remote_remove(name: &str) -> anyhow::Result<()> {
 pub fn remote_rename(old_name: &str, new_name: &str) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let mut manager = RemoteManager::new(repo.gvc_dir())?;
-    
+
     manager.rename(old_name, new_name)?;
     println!("Renamed remote '{}' to '{}'", old_name, new_name);
-    
+
     Ok(())
 }
 
@@ -544,9 +546,9 @@ pub fn remote_rename(old_name: &str, new_name: &str) -> anyhow::Result<()> {
 pub fn remote_list(verbose: bool) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let manager = RemoteManager::new(repo.gvc_dir())?;
-    
+
     let remotes = manager.list();
-    
+
     if remotes.is_empty() {
         println!("No remotes configured");
     } else {
@@ -559,7 +561,7 @@ pub fn remote_list(verbose: bool) -> anyhow::Result<()> {
             }
         }
     }
-    
+
     Ok(())
 }
 
@@ -567,11 +569,12 @@ pub fn remote_list(verbose: bool) -> anyhow::Result<()> {
 pub fn push(remote_name: &str, branch: Option<&str>, force: bool) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let manager = RemoteManager::new(repo.gvc_dir())?;
-    
+
     // Get remote URL
-    let remote = manager.get(remote_name)
+    let remote = manager
+        .get(remote_name)
         .ok_or_else(|| anyhow::anyhow!("Remote '{}' not found", remote_name))?;
-    
+
     // Determine branch to push
     let branch = if let Some(b) = branch {
         b.to_string()
@@ -579,25 +582,26 @@ pub fn push(remote_name: &str, branch: Option<&str>, force: bool) -> anyhow::Res
         repo.current_branch()?
             .ok_or_else(|| anyhow::anyhow!("Not currently on a branch"))?
     };
-    
+
     let ref_path = format!("refs/heads/{}", branch);
-    let local_oid = repo.resolve_ref(&ref_path)?
+    let local_oid = repo
+        .resolve_ref(&ref_path)?
         .ok_or_else(|| anyhow::anyhow!("Branch '{}' not found", branch))?;
-    
+
     println!("Pushing {} to {}/{}...", branch, remote_name, branch);
-    
+
     // Create client
     let client = RemoteClient::new(&remote.url)?;
-    
+
     // Get remote refs
     let remote_refs = client.list_refs("default")?;
     let remote_oid = remote_refs.get(&ref_path).cloned();
-    
+
     // Collect objects to push
     let objects_to_push = collect_objects_to_push(&repo, &local_oid, remote_oid.as_ref())?;
-    
+
     println!("Uploading {} object(s)...", objects_to_push.len());
-    
+
     // Create ref update
     let ref_update = gvc_core::protocol::RefUpdate {
         name: ref_path.clone(),
@@ -605,11 +609,11 @@ pub fn push(remote_name: &str, branch: Option<&str>, force: bool) -> anyhow::Res
         new_oid: local_oid,
         force,
     };
-    
+
     // Push
     let result = client.push("default", objects_to_push, vec![ref_update])?;
     println!("{}", result);
-    
+
     Ok(())
 }
 
@@ -617,21 +621,22 @@ pub fn push(remote_name: &str, branch: Option<&str>, force: bool) -> anyhow::Res
 pub fn fetch(remote_name: &str) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let manager = RemoteManager::new(repo.gvc_dir())?;
-    
+
     // Get remote URL
-    let remote = manager.get(remote_name)
+    let remote = manager
+        .get(remote_name)
         .ok_or_else(|| anyhow::anyhow!("Remote '{}' not found", remote_name))?;
-    
+
     println!("Fetching from {}...", remote_name);
-    
+
     // Create client
     let client = RemoteClient::new(&remote.url)?;
-    
+
     // List remote refs
     let remote_refs = client.list_refs("default")?;
-    
+
     println!("Found {} reference(s)", remote_refs.len());
-    
+
     // Collect objects we need
     let mut objects_to_fetch = Vec::new();
     for (_ref_name, oid) in &remote_refs {
@@ -640,32 +645,33 @@ pub fn fetch(remote_name: &str) -> anyhow::Result<()> {
             objects_to_fetch.push(oid.clone());
         }
     }
-    
+
     if objects_to_fetch.is_empty() {
         println!("Already up to date");
         return Ok(());
     }
-    
+
     println!("Downloading {} object(s)...", objects_to_fetch.len());
-    
+
     // Fetch objects
     let objects = client.get_objects("default", &objects_to_fetch)?;
-    
+
     // Write objects to local storage
     for obj_data in objects {
         repo.write_object_raw(&obj_data.oid, &obj_data.data)?;
     }
-    
+
     // Update remote-tracking refs
     for (ref_name, oid) in remote_refs {
         if ref_name.starts_with("refs/heads/") {
-            let tracking_ref = ref_name.replace("refs/heads/", &format!("refs/remotes/{}/", remote_name));
+            let tracking_ref =
+                ref_name.replace("refs/heads/", &format!("refs/remotes/{}/", remote_name));
             repo.update_ref(&tracking_ref, &oid)?;
         }
     }
-    
+
     println!("Fetch complete");
-    
+
     Ok(())
 }
 
@@ -673,11 +679,11 @@ pub fn fetch(remote_name: &str) -> anyhow::Result<()> {
 pub fn pull(remote_name: &str, _branch: Option<&str>) -> anyhow::Result<()> {
     // For now, just fetch - merging will be implemented in Phase 6
     fetch(remote_name)?;
-    
+
     println!();
     println!("Note: Auto-merge not yet implemented (Phase 6)");
     println!("Use 'gvc checkout' to switch to the fetched branch manually");
-    
+
     Ok(())
 }
 
@@ -688,50 +694,55 @@ pub fn clone(url: &str, directory: Option<&Path>) -> anyhow::Result<()> {
         dir.to_path_buf()
     } else {
         // Extract repository name from URL
-        let repo_name = url.split('/').last()
+        let repo_name = url
+            .split('/')
+            .last()
             .and_then(|s| s.strip_suffix(".git").or(Some(s)))
             .unwrap_or("repository");
         PathBuf::from(repo_name)
     };
-    
+
     if target_dir.exists() {
-        return Err(anyhow::anyhow!("Directory '{}' already exists", target_dir.display()));
+        return Err(anyhow::anyhow!(
+            "Directory '{}' already exists",
+            target_dir.display()
+        ));
     }
-    
+
     println!("Cloning into '{}'...", target_dir.display());
-    
+
     // Create and initialize repository
     std::fs::create_dir_all(&target_dir)?;
     let repo = Repository::init(&target_dir)?;
-    
+
     // Add remote
     let mut manager = RemoteManager::new(repo.gvc_dir())?;
     manager.add("origin", url)?;
-    
+
     println!("Added remote 'origin' -> {}", url);
-    
+
     // Fetch all refs
     let client = RemoteClient::new(url)?;
     let remote_refs = client.list_refs("default")?;
-    
+
     if remote_refs.is_empty() {
         println!("Remote repository is empty");
         return Ok(());
     }
-    
+
     println!("Fetching {} reference(s)...", remote_refs.len());
-    
+
     // Collect all objects
     let all_oids: Vec<_> = remote_refs.values().cloned().collect();
     let objects = client.get_objects("default", &all_oids)?;
-    
+
     println!("Downloading {} object(s)...", objects.len());
-    
+
     // Write all objects
     for obj_data in objects {
         repo.write_object_raw(&obj_data.oid, &obj_data.data)?;
     }
-    
+
     // Update refs
     for (ref_name, oid) in &remote_refs {
         if ref_name.starts_with("refs/heads/") {
@@ -739,19 +750,20 @@ pub fn clone(url: &str, directory: Option<&Path>) -> anyhow::Result<()> {
             repo.update_ref(&tracking_ref, oid)?;
         }
     }
-    
+
     // Determine default branch (prefer 'main', then 'master', then first available)
     let default_branch = if remote_refs.contains_key("refs/heads/main") {
         "main"
     } else if remote_refs.contains_key("refs/heads/master") {
         "master"
     } else {
-        remote_refs.keys()
+        remote_refs
+            .keys()
             .find(|k| k.starts_with("refs/heads/"))
             .and_then(|k| k.strip_prefix("refs/heads/"))
             .unwrap_or("main")
     };
-    
+
     // Checkout default branch if it exists
     if let Some(oid) = remote_refs.get(&format!("refs/heads/{}", default_branch)) {
         repo.update_ref(&format!("refs/heads/{}", default_branch), oid)?;
@@ -759,9 +771,9 @@ pub fn clone(url: &str, directory: Option<&Path>) -> anyhow::Result<()> {
         repo.checkout(default_branch)?;
         println!("Checked out branch '{}'", default_branch);
     }
-    
+
     println!("Clone complete");
-    
+
     Ok(())
 }
 
@@ -774,34 +786,34 @@ fn collect_objects_to_push(
     let mut objects = Vec::new();
     let mut visited = HashSet::new();
     let mut to_visit = vec![local_oid.clone()];
-    
+
     // Mark remote objects as visited (we don't need to send them)
     if let Some(remote) = remote_oid {
         mark_reachable_objects(repo, remote, &mut visited)?;
     }
-    
+
     // Collect all reachable objects from local_oid
     while let Some(oid) = to_visit.pop() {
         if visited.contains(&oid) {
             continue;
         }
         visited.insert(oid.clone());
-        
+
         let raw_data = repo.read_object_raw(&oid)?;
         let obj = repo.read_object(&oid)?;
-        
+
         let obj_type = match obj {
             Object::Blob(_) => gvc_core::protocol::ObjectType::Blob,
             Object::Tree(_) => gvc_core::protocol::ObjectType::Tree,
             Object::Commit(_) => gvc_core::protocol::ObjectType::Commit,
         };
-        
+
         objects.push(ObjectData {
             oid: oid.clone(),
             data: raw_data,
             object_type: obj_type,
         });
-        
+
         // Add referenced objects to visit
         match obj {
             Object::Commit(commit) => {
@@ -816,7 +828,7 @@ fn collect_objects_to_push(
             Object::Blob(_) => {}
         }
     }
-    
+
     Ok(objects)
 }
 
@@ -830,9 +842,9 @@ fn mark_reachable_objects(
         return Ok(());
     }
     visited.insert(oid.clone());
-    
+
     let obj = repo.read_object(oid)?;
-    
+
     match obj {
         Object::Commit(commit) => {
             mark_reachable_objects(repo, &commit.tree, visited)?;
@@ -847,7 +859,7 @@ fn mark_reachable_objects(
         }
         Object::Blob(_) => {}
     }
-    
+
     Ok(())
 }
 
@@ -859,7 +871,7 @@ fn mark_reachable_objects(
 pub fn gc(dry_run: bool, verbose: bool) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let gc = GarbageCollector::new(&repo);
-    
+
     if verbose {
         println!("Analyzing repository...");
         let stats = gc.stats()?;
@@ -868,26 +880,35 @@ pub fn gc(dry_run: bool, verbose: bool) -> anyhow::Result<()> {
         println!("  Total objects:       {}", stats.total_objects);
         println!("  Reachable objects:   {}", stats.reachable_objects);
         println!("  Unreachable objects: {}", stats.unreachable_objects);
-        println!("  Total size:          {}", GcStats::format_size(stats.total_size));
-        println!("  Reachable size:      {}", GcStats::format_size(stats.reachable_size));
-        println!("  Unreachable size:    {}", GcStats::format_size(stats.unreachable_size));
+        println!(
+            "  Total size:          {}",
+            GcStats::format_size(stats.total_size)
+        );
+        println!(
+            "  Reachable size:      {}",
+            GcStats::format_size(stats.reachable_size)
+        );
+        println!(
+            "  Unreachable size:    {}",
+            GcStats::format_size(stats.unreachable_size)
+        );
         println!();
     }
-    
+
     if dry_run {
         println!("Running in dry-run mode (no changes will be made)");
     }
-    
+
     println!("Running garbage collection...");
     let (removed, bytes_freed) = gc.collect(dry_run)?;
-    
+
     if removed > 0 {
         println!("Removed {} unreachable object(s)", removed);
         println!("Freed {}", GcStats::format_size(bytes_freed));
     } else {
         println!("No unreachable objects found");
     }
-    
+
     Ok(())
 }
 
@@ -904,7 +925,7 @@ pub fn merge(
 ) -> anyhow::Result<()> {
     let repo = Repository::open(&env::current_dir()?)?;
     let merger = MergeManager::new(&repo);
-    
+
     // Parse strategy
     let merge_strategy = match strategy {
         Some("ours") => MergeStrategy::Ours,
@@ -916,11 +937,11 @@ pub fn merge(
             return Err(anyhow::anyhow!("Unknown strategy: {}", s));
         }
     };
-    
+
     println!("Merging branch '{}'...", branch);
-    
+
     let result = merger.merge(branch, merge_strategy, message)?;
-    
+
     match result {
         MergeResult::FastForward { from, to } => {
             println!("Fast-forward: {} -> {}", from.short(7), to.short(7));
@@ -931,7 +952,10 @@ pub fn merge(
             println!("Merge successful!");
         }
         MergeResult::Conflicts { conflicts } => {
-            println!("\x1b[31mConflicts detected in {} file(s):\x1b[0m", conflicts.len());
+            println!(
+                "\x1b[31mConflicts detected in {} file(s):\x1b[0m",
+                conflicts.len()
+            );
             for conflict in &conflicts {
                 println!("  - {}", conflict.path.display());
             }
@@ -945,7 +969,6 @@ pub fn merge(
             println!("Already up to date.");
         }
     }
-    
+
     Ok(())
 }
-

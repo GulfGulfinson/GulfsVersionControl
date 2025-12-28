@@ -317,9 +317,7 @@ fn main() {
             ModuleCommands::Install { path } => commands::module_install(&path),
             ModuleCommands::Add { identifier } => commands::module_add(&identifier),
             ModuleCommands::Remove { identifier } => commands::module_remove(&identifier),
-            ModuleCommands::List { active, installed } => {
-                commands::module_list(active, installed)
-            }
+            ModuleCommands::List { active, installed } => commands::module_list(active, installed),
             ModuleCommands::Info { identifier } => commands::module_info(&identifier),
         },
         Commands::Remote(cmd) => match cmd {
@@ -330,16 +328,21 @@ fn main() {
             }
             RemoteCommands::List { verbose } => commands::remote_list(verbose),
         },
-        Commands::Push { remote, branch, force } => {
-            commands::push(&remote, branch.as_deref(), force)
-        }
+        Commands::Push {
+            remote,
+            branch,
+            force,
+        } => commands::push(&remote, branch.as_deref(), force),
         Commands::Fetch { remote } => commands::fetch(&remote),
         Commands::Pull { remote, branch } => commands::pull(&remote, branch.as_deref()),
         Commands::Clone { url, directory } => commands::clone(&url, directory.as_deref()),
         Commands::Gc { dry_run, verbose } => commands::gc(dry_run, verbose),
-        Commands::Merge { branch, strategy, message, ff_only } => {
-            commands::merge(&branch, strategy.as_deref(), message.as_deref(), ff_only)
-        }
+        Commands::Merge {
+            branch,
+            strategy,
+            message,
+            ff_only,
+        } => commands::merge(&branch, strategy.as_deref(), message.as_deref(), ff_only),
     };
 
     if let Err(e) = result {
@@ -347,4 +350,3 @@ fn main() {
         process::exit(1);
     }
 }
-

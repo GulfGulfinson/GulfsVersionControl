@@ -14,14 +14,9 @@ pub const PROTOCOL_VERSION: u32 = 1;
 #[serde(tag = "type")]
 pub enum Request {
     /// List all references in a repository
-    ListRefs {
-        repository: String,
-    },
+    ListRefs { repository: String },
     /// Get objects by their OIDs
-    GetObjects {
-        repository: String,
-        oids: Vec<Oid>,
-    },
+    GetObjects { repository: String, oids: Vec<Oid> },
     /// Push objects and update refs
     Push {
         repository: String,
@@ -29,9 +24,7 @@ pub enum Request {
         ref_updates: Vec<RefUpdate>,
     },
     /// Check repository existence and get metadata
-    InfoRefs {
-        repository: String,
-    },
+    InfoRefs { repository: String },
 }
 
 /// Response from server to client
@@ -44,9 +37,7 @@ pub enum Response {
         head: Option<String>,
     },
     /// Objects data
-    Objects {
-        objects: Vec<ObjectData>,
-    },
+    Objects { objects: Vec<ObjectData> },
     /// Push result
     PushResult {
         success: bool,
@@ -60,10 +51,7 @@ pub enum Response {
         branches: Vec<String>,
     },
     /// Error response
-    Error {
-        code: String,
-        message: String,
-    },
+    Error { code: String, message: String },
 }
 
 /// Object data for transfer
@@ -144,7 +132,7 @@ mod tests {
         };
         let json = serde_json::to_string(&request).unwrap();
         let deserialized: Request = serde_json::from_str(&json).unwrap();
-        
+
         match deserialized {
             Request::ListRefs { repository } => {
                 assert_eq!(repository, "test-repo");
@@ -161,13 +149,12 @@ mod tests {
             data: b"hello world".to_vec(),
             object_type: ObjectType::Blob,
         };
-        
+
         let json = serde_json::to_string(&data).unwrap();
         let deserialized: ObjectData = serde_json::from_str(&json).unwrap();
-        
+
         assert_eq!(deserialized.oid, oid);
         assert_eq!(deserialized.data, b"hello world");
         assert_eq!(deserialized.object_type, ObjectType::Blob);
     }
 }
-

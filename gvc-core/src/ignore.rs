@@ -1,6 +1,6 @@
+use crate::Result;
 use std::fs;
 use std::path::Path;
-use crate::Result;
 
 /// Pattern matcher for .gvcignore
 #[derive(Debug, Clone)]
@@ -105,7 +105,8 @@ impl IgnorePattern {
 
         // Text exhausted but pattern has * - continue
         if t_idx >= text.len() {
-            return pattern[p_idx] == '*' && self.glob_match_simple(pattern, text, p_idx + 1, t_idx);
+            return pattern[p_idx] == '*'
+                && self.glob_match_simple(pattern, text, p_idx + 1, t_idx);
         }
 
         match pattern[p_idx] {
@@ -145,10 +146,7 @@ impl IgnoreFile {
         }
 
         let content = fs::read_to_string(&ignore_path)?;
-        let patterns = content
-            .lines()
-            .filter_map(IgnorePattern::parse)
-            .collect();
+        let patterns = content.lines().filter_map(IgnorePattern::parse).collect();
 
         Ok(IgnoreFile { patterns })
     }
@@ -237,4 +235,3 @@ mod tests {
         assert!(!ignore.is_ignored(Path::new("important.log"), false));
     }
 }
-
