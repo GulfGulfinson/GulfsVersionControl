@@ -639,7 +639,7 @@ pub fn fetch(remote_name: &str) -> anyhow::Result<()> {
 
     // Collect objects we need
     let mut objects_to_fetch = Vec::new();
-    for (_ref_name, oid) in &remote_refs {
+    for oid in remote_refs.values() {
         // Check if we have this object
         if repo.read_object(oid).is_err() {
             objects_to_fetch.push(oid.clone());
@@ -696,7 +696,7 @@ pub fn clone(url: &str, directory: Option<&Path>) -> anyhow::Result<()> {
         // Extract repository name from URL
         let repo_name = url
             .split('/')
-            .last()
+            .next_back()
             .and_then(|s| s.strip_suffix(".git").or(Some(s)))
             .unwrap_or("repository");
         PathBuf::from(repo_name)
