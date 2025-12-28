@@ -12,6 +12,7 @@ pub mod hooks;
 pub mod protocol;
 pub mod remote;
 pub mod gc;
+pub mod merge;
 
 pub use error::{Error, Result};
 pub use hash::{Hash, Oid};
@@ -22,4 +23,5 @@ pub use module::{ModuleManifest, ModuleMetadata, ModuleManager, ModuleType};
 pub use hooks::{HookManager, HookType, HookResult};
 pub use protocol::{Request, Response, ObjectData, RefUpdate, ObjectType as ProtocolObjectType};
 pub use remote::{RemoteConfig, RemoteManager, RemoteClient};
+pub use merge::{MergeManager, MergeResult, MergeStrategy, ConflictedFile};
 

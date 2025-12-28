@@ -153,6 +153,24 @@ enum Commands {
         #[arg(short, long)]
         verbose: bool,
     },
+
+    /// Merge a branch into current branch
+    Merge {
+        /// Branch to merge
+        branch: String,
+
+        /// Merge strategy (ours, theirs, recursive)
+        #[arg(short, long)]
+        strategy: Option<String>,
+
+        /// Merge commit message
+        #[arg(short, long)]
+        message: Option<String>,
+
+        /// Only fast-forward merge
+        #[arg(long)]
+        ff_only: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -319,6 +337,9 @@ fn main() {
         Commands::Pull { remote, branch } => commands::pull(&remote, branch.as_deref()),
         Commands::Clone { url, directory } => commands::clone(&url, directory.as_deref()),
         Commands::Gc { dry_run, verbose } => commands::gc(*dry_run, *verbose),
+        Commands::Merge { branch, strategy, message, ff_only } => {
+            commands::merge(&branch, strategy.as_deref(), message.as_deref(), *ff_only)
+        }
     };
 
     if let Err(e) = result {

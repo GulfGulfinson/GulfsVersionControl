@@ -6,10 +6,11 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-[![Phase](https://img.shields.io/badge/Phase-5%20Complete-success.svg)](ROADMAP.md)
+[![Phase](https://img.shields.io/badge/Phase-6%20Complete-success.svg)](ROADMAP.md)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen.svg)](PROJECT_STATUS.md)
 [![CI](https://img.shields.io/badge/CI-Passing-success.svg)](.github/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/Tests-51%20Passing-success.svg)](PHASE5_COMPLETE.md)
+[![Merge](https://img.shields.io/badge/Merge-Supported-success.svg)](PHASE6_COMPLETE.md)
 
 **🌟 [5-Min Quick Start](QUICKSTART.md) | [Complete Tutorial](TUTORIAL.md) | [Cheatsheet](CHEATSHEET.md) 🌟**
 
@@ -91,11 +92,20 @@ GVC is a fully functional version control system built to understand and innovat
 | Cross-platform tests | Linux, Windows, macOS | ✅ |
 | Code coverage | ~50-60% coverage | ✅ |
 
+### ✅ Phase 6 (Advanced Features - Merge) - Complete 🔀
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| Three-way merge | `gvc merge <branch>` | ✅ |
+| Merge strategies | recursive, ours, theirs, ff-only | ✅ |
+| Fast-forward | Automatic detection | ✅ |
+| Conflict detection | With conflict markers | ✅ |
+| Merge base | Common ancestor finding | ✅ |
+
 ### 🚧 Coming Soon
 
-- **Phase 5.5**: More tests, benchmarks, packfiles
-- **Phase 6**: Merge, rebase, conflict resolution
-- **Phase 7**: Advanced features (stash, worktrees, etc.)
+- **Phase 6.5**: Rebase, cherry-pick, stash, content merge
+- **Phase 7**: Polish & production (performance, UX, docs)
 
 See [ROADMAP.md](ROADMAP.md) for details.
 

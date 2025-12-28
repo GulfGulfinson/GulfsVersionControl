@@ -1,5 +1,6 @@
 use gvc_core::{Commit, Hash, Object, Repository, ModuleManager, ModuleManifest, RemoteManager, RemoteClient, ObjectData};
 use gvc_core::gc::{GarbageCollector, GcStats};
+use gvc_core::merge::{MergeManager, MergeResult, MergeStrategy};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::collections::HashSet;
@@ -885,6 +886,64 @@ pub fn gc(dry_run: bool, verbose: bool) -> anyhow::Result<()> {
         println!("Freed {}", GcStats::format_size(bytes_freed));
     } else {
         println!("No unreachable objects found");
+    }
+    
+    Ok(())
+}
+
+// ============================================================================
+// ADVANCED COMMANDS (Phase 6)
+// ============================================================================
+
+/// Merge a branch into current branch
+pub fn merge(
+    branch: &str,
+    strategy: Option<&str>,
+    message: Option<&str>,
+    ff_only: bool,
+) -> anyhow::Result<()> {
+    let repo = Repository::open(&env::current_dir()?)?;
+    let merger = MergeManager::new(&repo);
+    
+    // Parse strategy
+    let merge_strategy = match strategy {
+        Some("ours") => MergeStrategy::Ours,
+        Some("theirs") => MergeStrategy::Theirs,
+        Some("recursive") => MergeStrategy::Recursive,
+        None if ff_only => MergeStrategy::FastForwardOnly,
+        None => MergeStrategy::Recursive,
+        Some(s) => {
+            return Err(anyhow::anyhow!("Unknown strategy: {}", s));
+        }
+    };
+    
+    println!("Merging branch '{}'...", branch);
+    
+    let result = merger.merge(branch, merge_strategy, message)?;
+    
+    match result {
+        MergeResult::FastForward { from, to } => {
+            println!("Fast-forward: {} -> {}", from.short(7), to.short(7));
+            println!("Merge successful!");
+        }
+        MergeResult::Success { merge_commit } => {
+            println!("Merge commit: {}", merge_commit.short(7));
+            println!("Merge successful!");
+        }
+        MergeResult::Conflicts { conflicts } => {
+            println!("\x1b[31mConflicts detected in {} file(s):\x1b[0m", conflicts.len());
+            for conflict in &conflicts {
+                println!("  - {}", conflict.path.display());
+            }
+            println!();
+            println!("Resolve conflicts and then run:");
+            println!("  gvc add <file>...");
+            println!("  gvc commit");
+            return Err(anyhow::anyhow!("Merge conflicts need resolution"));
+        }
+        MergeResult::UpToDate => {
+            println!("Already up to date.");
+        }
     }
     
     Ok(())
