@@ -40,6 +40,8 @@ Instructions for building and testing:
 Project status and summaries:
 
 - **[PROJECT_STATUS.md](PROJECT_STATUS.md)** - Current project status and metrics
+- **[PHASE4_COMPLETE.md](PHASE4_COMPLETE.md)** - **🌍 NEW! Phase 4 completion (Remote & Server)**
+- **[PHASE4_SUMMARY.md](PHASE4_SUMMARY.md)** - **NEW! Phase 4 quick summary (German)**
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
 - **[FAQ.md](FAQ.md)** - Frequently asked questions
 - **[LICENSE](LICENSE)** - MIT License
