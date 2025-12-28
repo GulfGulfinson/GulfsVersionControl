@@ -7,6 +7,9 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] io::Error),
 
+    #[error("WalkDir error: {0}")]
+    WalkDir(#[from] walkdir::Error),
+
     #[error("Repository not found at {0}")]
     RepositoryNotFound(PathBuf),
 

@@ -233,7 +233,7 @@ impl Repository {
 
         for entry in index.entries().values() {
             let mut current_path = PathBuf::new();
-            let components: Vec<_> = entry.path.components().collect();
+            let components: Vec<std::path::Component> = entry.path.components().collect();
 
             for (i, component) in components.iter().enumerate() {
                 let name = component.as_os_str().to_string_lossy().to_string();
@@ -532,7 +532,7 @@ impl Repository {
 
         // Compare index with HEAD
         for (path, entry) in index.entries() {
-            let old_hash = head_files.get(path).cloned();
+            let old_hash = head_files.get(path as &PathBuf).cloned();
             let new_hash = Some(entry.hash.clone());
 
             if old_hash != new_hash {
@@ -586,7 +586,7 @@ impl Repository {
         let mut diffs = Vec::new();
 
         for (path, entry) in index.entries() {
-            let full_path = self.work_dir.join(path);
+            let full_path = self.work_dir.join(path as &PathBuf);
 
             if !full_path.exists() {
                 // File deleted
@@ -668,7 +668,7 @@ impl Repository {
 
         // Check staged files
         for (path, entry) in index.entries() {
-            let head_hash = head_files.get(path);
+            let head_hash = head_files.get(path as &PathBuf);
 
             if head_hash.is_none() {
                 status.staged_new.push(path.clone());
@@ -710,7 +710,7 @@ impl Repository {
 
         // Check for deleted files
         for path in index.entries().keys() {
-            let full_path = self.work_dir.join(path);
+            let full_path = self.work_dir.join(path as &PathBuf);
             if !full_path.exists() {
                 status.deleted.push(path.clone());
             }

@@ -85,7 +85,7 @@ impl DiffEngine {
 
     /// Create hunk with only additions
     fn create_add_hunk(lines: Vec<String>) -> Hunk {
-        let changes = lines.into_iter().map(Change::Add).collect();
+        let changes: Vec<Change> = lines.into_iter().map(Change::Add).collect();
         Hunk {
             old_start: 0,
             old_count: 0,
@@ -97,7 +97,7 @@ impl DiffEngine {
 
     /// Create hunk with only deletions
     fn create_delete_hunk(lines: Vec<String>) -> Hunk {
-        let changes = lines.into_iter().map(Change::Delete).collect();
+        let changes: Vec<Change> = lines.into_iter().map(Change::Delete).collect();
         Hunk {
             old_start: 1,
             old_count: changes.len(),
@@ -213,8 +213,8 @@ impl DiffEngine {
         const CONTEXT_LINES: usize = 3;
         let mut hunks = Vec::new();
         let mut current_hunk: Option<Hunk> = None;
-        let mut old_line = 1;
-        let mut new_line = 1;
+        let mut old_line: usize = 1;
+        let mut new_line: usize = 1;
         let mut context_buffer = Vec::new();
 
         for change in changes {

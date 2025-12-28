@@ -150,7 +150,7 @@ impl<'a> MergeManager<'a> {
     /// Find common ancestor (merge base)
     fn find_merge_base(&self, oid1: &Hash, oid2: &Hash) -> Result<Option<Hash>> {
         // Simple algorithm: find first common ancestor
-        let mut ancestors1 = self.get_ancestors(oid1)?;
+        let ancestors1 = self.get_ancestors(oid1)?;
         let mut current = Some(oid2.clone());
         
         while let Some(oid) = current {
@@ -248,9 +248,10 @@ impl<'a> MergeManager<'a> {
         let merged_tree = self.create_tree_from_files(&merged_files)?;
         
         // Create merge commit
-        let merge_message = message.unwrap_or(&format!("Merge branch '{}'", their_branch));
+        let default_message = format!("Merge branch '{}'", their_branch);
+        let merge_message = message.unwrap_or(&default_message);
         let merge_commit = Commit::new(
-            merged_tree,
+            merged_tree.clone(),
             vec![ours.clone(), theirs.clone()],
             "Author".to_string(), // TODO: Get from config
             merge_message.to_string(),
@@ -300,7 +301,7 @@ impl<'a> MergeManager<'a> {
                     MergeStrategy::Theirs => Ok(FileMergeResult::Success(t)),
                     MergeStrategy::Recursive => {
                         // Try to merge content
-                        self.try_content_merge(path, base, Some(o), Some(t))
+                        self.try_content_merge(path, base.clone(), Some(o), Some(t))
                     }
                     MergeStrategy::FastForwardOnly => unreachable!(),
                 }
@@ -314,7 +315,7 @@ impl<'a> MergeManager<'a> {
                 if o == t {
                     Ok(FileMergeResult::Success(o))
                 } else {
-                    self.try_content_merge(path, None, Some(o), Some(t))
+                    self.try_content_merge(path, base.clone(), Some(o), Some(t))
                 }
             }
             // File deleted by us
