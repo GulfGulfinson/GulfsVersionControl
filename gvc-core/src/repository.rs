@@ -829,7 +829,7 @@ mod tests {
     #[test]
     fn test_repository_init() {
         let temp = TempDir::new().unwrap();
-        let repo = Repository::init(temp.path()).unwrap();
+        let _repo = Repository::init(temp.path()).unwrap();
 
         assert!(temp.path().join(".gvc").exists());
         assert!(temp.path().join(".gvc/objects").exists());

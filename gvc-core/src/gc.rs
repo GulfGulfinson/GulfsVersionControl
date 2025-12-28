@@ -176,7 +176,6 @@ impl GcStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Blob;
     use tempfile::TempDir;
     use std::fs;
 

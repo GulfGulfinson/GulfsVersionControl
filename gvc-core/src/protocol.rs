@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_object_data_serialization() {
-        let oid = Oid::hash(b"test");
+        let oid = Oid::compute(b"test");
         let data = ObjectData {
             oid: oid.clone(),
             data: b"hello world".to_vec(),

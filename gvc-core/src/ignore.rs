@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_negation() {
-        let mut patterns = vec![
+        let patterns = vec![
             IgnorePattern::parse("*.log").unwrap(),
             IgnorePattern::parse("!important.log").unwrap(),
         ];

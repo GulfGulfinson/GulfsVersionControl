@@ -417,7 +417,6 @@ gvc module add {}@0.1.0
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
 
     #[test]
     fn test_manifest_validation() {
