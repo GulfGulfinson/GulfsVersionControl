@@ -279,7 +279,7 @@ impl<'a> MergeManager<'a> {
     /// Merge a single file
     fn merge_file(
         &self,
-        path: &PathBuf,
+        path: &Path,
         base: Option<Hash>,
         ours: Option<Hash>,
         theirs: Option<Hash>,
